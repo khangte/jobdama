@@ -17,7 +17,9 @@ import re
 from selectolax.lexbor import LexborHTMLParser, LexborNode
 
 from app.models import Posting
-from app.parsers.common import classify_career, clean, extract_sections, format_title, parse_deadline
+from app.parsers.common import (
+    classify_career, clean, dl_pairs, extract_sections, format_title, meta_content, parse_deadline,
+)
 
 
 from app.parsers.errors import ParseError, PostingMismatch  # noqa: E402,F401  (기존 import 경로 호환)
@@ -25,29 +27,6 @@ from app.parsers.errors import ParseError, PostingMismatch  # noqa: E402,F401  (
 
 def _text(node: LexborNode | None) -> str:
     return clean(node.text(separator=" ")) if node is not None else ""
-
-
-def _meta(tree: LexborHTMLParser, attr: str, value: str) -> str:
-    node = tree.css_first(f'meta[{attr}="{value}"]')
-    return clean(node.attributes.get("content")) if node is not None else ""
-
-
-def _dl_pairs(dl: LexborNode) -> list[tuple[str, LexborNode]]:
-    pairs: list[tuple[str, LexborNode]] = []
-    label: str | None = None
-    for child in dl.iter():
-        if child.tag == "dt":
-            label = _text(child)
-        elif child.tag == "dd" and label is not None:
-            pairs.append((label, child))
-            label = None
-    return pairs
-
-
-def _dd_text(dd: LexborNode) -> str:
-    for junk in dd.css("button, .toolTip, .toolTipWrap, svg"):
-        junk.decompose()
-    return _text(dd)
 
 
 def is_same_posting(html: str, rec_idx: str) -> bool:
@@ -66,11 +45,11 @@ def parse(html: str, url: str, rec_idx: str) -> Posting:
 
     raw_title = _text(tree.css_first("h1.tit_job"))
     company = _text(tree.css_first("a.company"))
-    desc = _meta(tree, "name", "description") or _meta(tree, "property", "og:description")
+    desc = meta_content(tree, "description", "og:description")
     desc_parts = [p.strip() for p in desc.split(",")] if desc else []
 
     if not raw_title:
-        og = _meta(tree, "property", "og:title")
+        og = meta_content(tree, "og:title")
         og = re.sub(r"\s*-\s*사람인\s*$", "", og)
         og = re.sub(r"\s*\((?:D-\d+|오늘마감|내일마감|상시채용)\)\s*$", "", og)
         if company and og.startswith(f"[{company}]"):
@@ -84,26 +63,17 @@ def parse(html: str, url: str, rec_idx: str) -> Posting:
     if not is_same_posting(html, rec_idx):
         raise PostingMismatch("요청한 공고와 다른 페이지가 열림")
 
-    summary: dict[str, str] = {}
-    for dl in tree.css(".jv_summary dl"):
-        for label, dd in _dl_pairs(dl):
-            if label == "경력":
-                strong = dd.css_first("strong")
-                summary[label] = _text(strong) or _dd_text(dd)
-            else:
-                summary[label] = _dd_text(dd)
+    summary_node = tree.css_first(".jv_summary")
+    summary = dl_pairs(summary_node) if summary_node is not None else {}
 
     career_raw = summary.get("경력")
     if not career_raw:
         m = re.search(r"경력:([^,]+)", desc)
         career_raw = clean(m.group(1)) if m else None
 
-    deadline_raw = None
     period = tree.css_first("dl.info_period")
-    if period is not None:
-        for label, dd in _dl_pairs(period):
-            if "마감" in label:
-                deadline_raw = _text(dd)
+    period_pairs = dl_pairs(period) if period is not None else {}
+    deadline_raw = next((v for k, v in period_pairs.items() if "마감" in k), None)
     if not deadline_raw:
         m = re.search(r"마감일:([^,]+)", desc)
         deadline_raw = clean(m.group(1)) if m else None

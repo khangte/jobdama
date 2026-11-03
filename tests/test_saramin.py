@@ -97,3 +97,10 @@ def test_build_children_has_template_sections():
         for b in blocks if b["type"] == "bulleted_list_item"
     ]
     assert "전형 절차" not in p.sections and "공고에서 확인 불가" in texts
+
+
+def test_dl_pairs_drops_tooltip():
+    from selectolax.lexbor import LexborHTMLParser
+    from app.parsers.common import dl_pairs
+    tree = LexborHTMLParser('<dl><dt>근무형태</dt><dd>정규직<span class="toolTipWrap"><span class="toolTip">설명</span></span></dd></dl>')
+    assert dl_pairs(tree) == {"근무형태": "정규직"}

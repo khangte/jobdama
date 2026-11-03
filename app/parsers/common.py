@@ -368,7 +368,7 @@ def dl_pairs(tree: LexborHTMLParser | LexborNode) -> dict[str, str]:
             if child.tag == "dt":
                 label = clean(child.text(separator=" "))
             elif child.tag == "dd" and label:
-                for junk in child.css("button, svg, script, style"):
+                for junk in child.css("button, svg, script, style, .toolTip, .toolTipWrap"):
                     junk.decompose()
                 out.setdefault(label, clean(child.text(separator=" ")))
                 label = None
