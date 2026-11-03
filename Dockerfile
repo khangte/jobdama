@@ -18,10 +18,10 @@ WORKDIR /app
 
 # 의존성 먼저 설치(코드만 바뀌면 이 단계는 캐시를 재사용)
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-dev --no-install-project --no-cache
 
-# Chromium과 실행에 필요한 시스템 패키지(폰트 포함)
-RUN playwright install --with-deps chromium \
+# Headless Shell과 실행에 필요한 시스템 패키지(폰트 포함)
+RUN playwright install --with-deps --only-shell chromium \
     && rm -rf /var/lib/apt/lists/*
 
 COPY app ./app
