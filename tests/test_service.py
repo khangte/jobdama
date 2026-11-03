@@ -5,7 +5,7 @@ from pathlib import Path
 
 import httpx
 
-from app.fetcher import FetchError
+from app.fetcher import BlockedTarget, FetchError
 from app.models import JobStatus
 from app.notion_store import page_url
 from app.service import Collector, JobService
@@ -145,6 +145,20 @@ async def test_browser_used_when_http_blocked():
     job = svc.submit(URL)
     await svc.wait_idle()
     assert browser.calls == 1 and job.status is JobStatus.SAVED
+
+
+async def test_blocked_target_not_retried_in_browser():
+    class Blocked(FakeFetcher):
+        async def fetch(self, url, site):
+            self.calls += 1
+            raise BlockedTarget("내부망 주소로 연결되는 링크라 요청하지 않음")
+
+    browser = FakeFetcher(LIVE, name="playwright")
+    svc = make(Blocked(), FakeStore(), browser)
+    job = svc.submit(URL)
+    await svc.wait_idle()
+    assert browser.calls == 0
+    assert job.status is JobStatus.FETCH_FAILED and "내부망" in job.message
 
 
 async def test_create_timeout_but_page_landed_is_not_duplicated():

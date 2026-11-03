@@ -43,6 +43,10 @@ class FetchError(Exception):
     pass
 
 
+class BlockedTarget(FetchError):
+    """허용되지 않은 주소. 다른 수집기로 다시 시도하지 않는다."""
+
+
 def decode_html(content: bytes, header_charset: str | None = None) -> str:
     charset = header_charset
     if not charset:
@@ -84,9 +88,9 @@ async def is_public_host(host: str) -> bool:
 
 async def check_target(url: str, site: Site) -> None:
     if not is_allowed_fetch_url(url, site):
-        raise FetchError(f"허용되지 않은 주소: {url}")
+        raise BlockedTarget(f"허용되지 않은 주소: {url}")
     if site is GENERIC and not await is_public_host(urlsplit(url).hostname or ""):
-        raise FetchError("내부망 주소로 연결되는 링크라 요청하지 않음")
+        raise BlockedTarget("내부망 주소로 연결되는 링크라 요청하지 않음")
 
 
 class HttpFetcher:
@@ -169,7 +173,10 @@ class BrowserFetcher:
         await check_target(url, site)
         browser = await self._ensure_browser()
         async with self._sem:
-            context = await browser.new_context(user_agent=USER_AGENT, locale="ko-KR")
+            # 서비스 워커 요청은 page.route로 가로챌 수 없으므로 막는다.
+            # shortcut: page.route는 리디렉션의 첫 주소에만 불리므로 리디렉션 뒤 주소(하위 리소스 포함)는
+            # 요청이 나간 뒤에야 확인된다. 완전히 막으려면 검사하는 프록시를 거치게 해야 한다.
+            context = await browser.new_context(user_agent=USER_AGENT, locale="ko-KR", service_workers="block")
             try:
                 page = await context.new_page()
 

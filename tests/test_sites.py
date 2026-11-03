@@ -209,6 +209,14 @@ async def test_public_host_check():
     assert not await is_public_host("no-such-host.invalid")
 
 
+async def test_internal_target_raises_blocked():
+    import pytest
+    from app.fetcher import BlockedTarget, check_target
+    from app.urls import GENERIC
+    with pytest.raises(BlockedTarget):
+        await check_target("http://127.0.0.1/careers", GENERIC)
+
+
 def test_decode_html_meta_charset():
     raw = '<html><head><meta charset="euc-kr"></head><body>경력무관</body></html>'.encode("cp949")
     assert "경력무관" in decode_html(raw, None)

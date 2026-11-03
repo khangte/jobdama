@@ -14,7 +14,7 @@ from dataclasses import replace
 from datetime import datetime
 from typing import Protocol
 
-from app.fetcher import FetchError
+from app.fetcher import BlockedTarget, FetchError
 from app.models import KST, Job, JobStatus, Posting
 from app.notion_store import is_uncertain_write_error, page_url
 from app.parsers.errors import ParseError, PostingMismatch
@@ -72,6 +72,9 @@ class Collector:
             is_last = i == len(fetchers) - 1
             try:
                 posting = await self._once(fetcher, target)
+            except BlockedTarget as e:  # 막힌 주소는 브라우저로 다시 열지 않는다(브라우저는 리디렉션을 미리 막지 못함)
+                reasons.append(f"{fetcher.name}: {e}")
+                break
             except (FetchError, ParseError) as e:
                 reasons.append(f"{fetcher.name}: {e}")
                 log.info("수집 실패 %s %s: %s", fetcher.name, target.url, e)
