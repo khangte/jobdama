@@ -13,6 +13,7 @@ dependencies = [
     "notion-client>=3.1",
     "playwright>=1.47",
     "tzdata>=2024.1",  # 컨테이너에 시간대 DB가 없어도 Asia/Seoul을 쓰기 위해
+    "python-dotenv>=1.2.4",
 ]
 
 [dependency-groups]
