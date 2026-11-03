@@ -4,4 +4,3 @@ __pycache__/
 .pytest_cache/
 *.pyc
 snapshots/
-uv.lock
