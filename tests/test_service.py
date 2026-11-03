@@ -1,7 +1,6 @@
 """가짜 수집기·가짜 노션으로 처리 흐름 검증 (네트워크 없음)."""
 
 import asyncio
-from pathlib import Path
 
 import httpx
 
@@ -9,9 +8,9 @@ from app.fetcher import BlockedTarget, FetchError
 from app.models import JobStatus
 from app.notion_store import page_url
 from app.service import Collector, JobService
+from tests.helpers import load
 
-FIX = Path(__file__).parent / "fixtures"
-LIVE = (FIX / "saramin_55434315.html").read_text(encoding="utf-8")
+LIVE = load("saramin_55434315.html")
 URL = "https://www.saramin.co.kr/zf_user/jobs/relay/view?isMypage=no&rec_idx=55434315&recommend_ids=abc"
 CANON = "https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=55434315"
 
@@ -228,8 +227,8 @@ def test_page_url_fallback():
 
 # ---------------------------------------------------------------- 사이트별 수집 순서
 
-JK_MAIN = (FIX / "jobkorea_49874788.html").read_text(encoding="utf-8")
-JK_BODY = (FIX / "jobkorea_49874788_body.html").read_text(encoding="utf-8")
+JK_MAIN = load("jobkorea_49874788.html")
+JK_BODY = load("jobkorea_49874788_body.html")
 
 
 class UrlFetcher(FakeFetcher):
@@ -289,10 +288,10 @@ async def test_js_site_uses_browser_after_empty_shell():
 
 
 async def test_jasoseol_and_catch_not_reopened_in_browser():
-    jss = (FIX / "jasoseol_107042.html").read_text(encoding="utf-8")
-    catch = (FIX / "catch_578555.html").read_text(encoding="utf-8")
+    jss = load("jasoseol_107042.html")
+    catch = load("catch_578555.html")
     browser = UrlFetcher({}, name="playwright")
-    catch_body = (FIX / "catch_578555_body.html").read_text(encoding="utf-8")
+    catch_body = load("catch_578555_body.html")
     svc = make(UrlFetcher({"jasoseol.com": jss, "RecruitInfoDetails": catch, "recruitDetail": catch_body}),
                FakeStore(), browser)
     j1 = svc.submit("https://jasoseol.com/recruit/107042")
@@ -312,7 +311,7 @@ async def test_js_site_without_browser_fails_cleanly():
 
 async def test_past_deadline_marked_expired():
     store = FakeStore()
-    expired = (FIX / "saramin_54220010_expired.html").read_text(encoding="utf-8")
+    expired = load("saramin_54220010_expired.html")
     svc = make(FakeFetcher(expired), store)
     job = svc.submit("https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=54220010")
     await svc.wait_idle()

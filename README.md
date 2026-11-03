@@ -182,4 +182,8 @@ app/
   notion_store.py   노션 조회·생성, 페이지 본문 블록
   templates/, static/  화면 (htmx는 static에 포함)
 tests/
+  test_urls.py, test_fetcher.py, test_service.py, test_notion_store.py, test_snapshot.py, test_main.py
+                    app/의 같은 이름 모듈 검증
+  parsers/          app/parsers/의 같은 이름 모듈 검증(test_sites, test_saramin, test_generic 등)
+  fixtures/         실제 공고 HTML
 ```

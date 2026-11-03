@@ -1,17 +1,16 @@
 """노션 API 요청 형식 검증. httpx MockTransport로 실제 notion-client가 보내는 요청을 가로챈다."""
 
 import json
-from pathlib import Path
 
 import httpx
 from notion_client import AsyncClient
 
 from app.config import Settings
-from app.notion_store import NotionStore
+from app.notion_store import NotionStore, build_children
 from app.parsers import saramin
 from app.urls import normalize
+from tests.helpers import load, parse_saramin
 
-FIX = Path(__file__).parent / "fixtures"
 JOB_DS = "job-ds"
 COMPANY_DS = "company-ds"
 
@@ -108,7 +107,7 @@ async def test_create_posting_payload():
         body.update(json.loads(req.content))
         return httpx.Response(200, json={"object": "page", "id": "p-1", "url": "https://www.notion.so/p1"})
 
-    html = (FIX / "saramin_55434315.html").read_text(encoding="utf-8")
+    html = load("saramin_55434315.html")
     posting = saramin.parse(html, "https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=55434315", "55434315")
     store = make_store(handler)
     page = await store.create_posting(posting, "c-1")
@@ -167,3 +166,27 @@ async def test_find_by_url_generic_equals_only():
 
     await make_store(handler).find_by_url(normalize("https://recruit.i-sens.com/job_posting/DFUxhzD4"))
     assert seen["body"]["filter"] == {"property": "URL", "url": {"equals": "https://recruit.i-sens.com/job_posting/DFUxhzD4"}}
+
+
+def test_image_only_body_is_partial():
+    html = load("saramin_55434315.html")
+    start = html.index('<div class="user_content')
+    end = html.index("</div>", start)
+    html = html[:start] + '<div class="user_content jobsViewDetail_55434315"><img src="x.png">' + html[end:]
+    p = saramin.parse(html, "u", "55434315")
+    assert p.title and not p.body_found
+    blocks = build_children(p)
+    assert blocks[0]["type"] == "callout"
+
+
+def test_build_children_has_template_sections():
+    p = parse_saramin("saramin_55434315.html", "55434315")
+    blocks = build_children(p)
+    headings = [b["heading_2"]["rich_text"][0]["text"]["content"] for b in blocks if b["type"] == "heading_2"]
+    assert headings == ["공고 요약", "주요 업무", "자격 요건", "우대 사항", "전형 절차", "원문 링크"]
+    assert len(blocks) <= 100
+    texts = [
+        "".join(r["text"]["content"] for r in b["bulleted_list_item"]["rich_text"])
+        for b in blocks if b["type"] == "bulleted_list_item"
+    ]
+    assert "전형 절차" not in p.sections and "공고에서 확인 불가" in texts
