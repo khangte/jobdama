@@ -17,6 +17,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.16.0",
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "ruff>=0.17.3",
@@ -24,6 +25,7 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"  # pytest-asyncio 향후 기본값, 미설정 경고 방지
 testpaths = ["tests"]
 
 [tool.ruff]
