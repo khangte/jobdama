@@ -235,6 +235,18 @@ async def test_http_redirect_to_internal_is_blocked_before_request():
     assert seen == ["http://8.8.8.8/jobs/1"]  # 내부 주소로는 요청하지 않음
 
 
+async def test_http_redirect_without_location_is_fetch_error():
+    import httpx
+    import pytest
+    from app.fetcher import FetchError, HttpFetcher
+    from app.urls import GENERIC
+
+    # httpx의 is_redirect는 Location이 없어도 3xx면 True라서 "리디렉션 주소 없음" 분기를 탄다
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(302))) as client:
+        with pytest.raises(FetchError, match="리디렉션 주소 없음"):
+            await HttpFetcher(client).fetch("http://8.8.8.8/jobs/1", GENERIC)
+
+
 def test_decode_html_meta_charset():
     raw = '<html><head><meta charset="euc-kr"></head><body>경력무관</body></html>'.encode("cp949")
     assert "경력무관" in decode_html(raw, None)
