@@ -14,6 +14,7 @@ from datetime import datetime
 import httpx
 from notion_client import AsyncClient
 from notion_client.errors import HTTPResponseError, RequestTimeoutError
+from notion_client.helpers import async_iterate_paginated_api
 
 from app.config import Settings
 from app.models import KST, SECTION_KEYS, Posting
@@ -187,7 +188,7 @@ class NotionStore:
             raise NotionError("기업명이 비어 있음")
         lock = self._company_locks.setdefault(key, asyncio.Lock())
         async with lock:
-            found = await self._find_company(name, key)
+            found = await self._find_company(key)
             if found:
                 return found
             page = await self.client.pages.create(
@@ -199,20 +200,16 @@ class NotionStore:
             )
             return page["id"]
 
-    async def _find_company(self, name: str, key: str) -> str | None:
-        # 제목 contains 검색은 원문 이름과 (주) 등을 뺀 이름 두 가지로 시도하고, 정규화 결과가 같은 것만 인정한다.
-        stripped = name
-        for token in ("(주)", "㈜", "주식회사"):
-            stripped = stripped.replace(token, "")
-        terms = list(dict.fromkeys(t.strip() for t in (name, stripped) if t.strip()))
-        filt = {"or": [{"property": self.s.company_prop_title, "title": {"contains": t}} for t in terms]}
-        res = await self.client.data_sources.query(
+    async def _find_company(self, key: str) -> str | None:
+        # 제목 contains 검색은 띄어쓰기 차이("SK 텔레콤"/"SK텔레콤")를 놓치므로 기업 DB 전체를 받아 정규화해 비교한다.
+        # shortcut: 저장할 때마다 기업 DB 전체를 읽는다. 기업이 수천 개로 늘면 정규화 키 속성을 두고 equals로 검색한다.
+        pages = async_iterate_paginated_api(
+            self.client.data_sources.query,
             data_source_id=self.s.company_data_source_id,
-            filter=filt,
             sorts=[{"timestamp": "created_time", "direction": "ascending"}],
-            page_size=20,
+            page_size=100,
         )
-        for page in res.get("results", []):
+        async for page in pages:
             title_prop = page.get("properties", {}).get(self.s.company_prop_title, {})
             title = "".join(t.get("plain_text", "") for t in title_prop.get("title", []))
             if normalize_company(title) == key:

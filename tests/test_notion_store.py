@@ -64,6 +64,26 @@ async def test_company_reuse_by_normalized_name():
     assert calls == [("POST", f"/v1/data_sources/{COMPANY_DS}/query")]
 
 
+async def test_company_reuse_ignores_spacing_and_reads_all_pages():
+    bodies = []
+
+    def handler(req: httpx.Request):
+        if not req.url.path.endswith("/query"):
+            raise AssertionError("기업이 있으면 생성하면 안 됨")
+        body = json.loads(req.content)
+        bodies.append(body)
+        if "start_cursor" not in body:
+            return httpx.Response(200, json={"object": "list", "has_more": True, "next_cursor": "c2",
+                                             "results": [company_page("c-kakao", "카카오")]})
+        return httpx.Response(200, json={"object": "list", "has_more": False, "next_cursor": None,
+                                         "results": [company_page("c-sk", "SK텔레콤")]})
+
+    store = make_store(handler)
+    assert await store.find_or_create_company("SK 텔레콤") == "c-sk"
+    assert "filter" not in bodies[0]
+    assert bodies[1]["start_cursor"] == "c2"
+
+
 async def test_company_created_when_missing():
     created = {}
 
