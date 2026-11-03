@@ -21,9 +21,10 @@ from selectolax.lexbor import LexborHTMLParser
 from app.models import Posting
 from app.parsers import saramin
 from app.parsers.common import (
-    classify_career, clean, employment_label, extract_sections, format_title, html_to_lines, itemize, jsonld_jobposting,
-    merge_sections, meta_content, next_data, parse_deadline, parse_iso_deadline,
+    classify_career, clean, employment_label, format_title, parse_deadline, parse_iso_deadline,
 )
+from app.parsers.html import html_to_lines, jsonld_jobposting, meta_content, next_data
+from app.parsers.sections import extract_sections, itemize, merge_sections
 from app.parsers.generic import meta_value, parse_generic, today_kst
 from app.parsers.generic import pick_classifiable
 from app.urls import (

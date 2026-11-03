@@ -2,7 +2,8 @@ from datetime import date
 
 import pytest
 
-from app.parsers.common import classify_career, extract_sections, format_title, parse_deadline
+from app.parsers.common import classify_career, format_title, parse_deadline
+from app.parsers.sections import extract_sections
 from app.urls import GENERIC, SARAMIN, UnsupportedURL, is_allowed_fetch_url, normalize
 
 CANON = "https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=54220010"

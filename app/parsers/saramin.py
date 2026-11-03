@@ -17,9 +17,9 @@ import re
 from selectolax.lexbor import LexborHTMLParser, LexborNode
 
 from app.models import Posting
-from app.parsers.common import (
-    classify_career, clean, dl_pairs, extract_sections, format_title, meta_content, parse_deadline,
-)
+from app.parsers.common import classify_career, clean, format_title, parse_deadline
+from app.parsers.html import dl_pairs, meta_content
+from app.parsers.sections import extract_sections
 
 
 from app.parsers.errors import ParseError, PostingMismatch

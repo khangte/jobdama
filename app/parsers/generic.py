@@ -11,10 +11,14 @@ from selectolax.lexbor import LexborHTMLParser
 
 from app.models import KST, Posting
 from app.parsers.common import (
-    classify_career, clean, clean_page_title, dl_pairs, employment_label, extract_sections, find_label,
-    format_title, html_to_lines, is_site_default_title, jsonld_company, jsonld_experience, jsonld_jobposting,
-    jsonld_location, label_in_lines, merge_sections, meta_content, node_lines, parse_deadline, parse_iso_deadline,
+    classify_career, clean, clean_page_title, employment_label, format_title, is_site_default_title, parse_deadline,
+    parse_iso_deadline,
 )
+from app.parsers.html import (
+    dl_pairs, find_label, html_to_lines, jsonld_company, jsonld_experience, jsonld_jobposting, jsonld_location,
+    label_in_lines, meta_content, node_lines,
+)
+from app.parsers.sections import extract_sections, merge_sections
 from app.parsers.errors import ParseError
 from app.urls import GENERIC, NormalizedURL
 

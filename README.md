@@ -175,7 +175,9 @@ app/
   parsers/sites.py    사이트별 파서(잡코리아, 인크루트, 원티드, 점핏, 그리팅, 자소설닷컴, 캐치)와 분기
   parsers/saramin.py  사람인 파서
   parsers/generic.py  범용 파서(JSON-LD, 메타, dt/dd, 본문 제목)
-  parsers/common.py   경력 분류, 마감일, 공고명 형식, 본문 구간 발췌
+  parsers/common.py   경력 분류, 마감일, 공고명 형식, 값 변환
+  parsers/sections.py 본문 구간 발췌(주요 업무, 자격 요건, 우대 사항, 전형 절차)
+  parsers/html.py     HTML·JSON-LD 도우미(줄 추출, 메타값, dt/dd, JSON-LD 필드)
   snapshot.py       진단 명령(HTML 저장, 파싱 결과 출력)
   notion_store.py   노션 조회·생성, 페이지 본문 블록
   templates/, static/  화면 (htmx는 static에 포함)

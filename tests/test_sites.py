@@ -476,7 +476,7 @@ def test_catch_real_image_body_is_partial():
     (None, None, "경기 성남시 분당구 판교로256번길 7", "경기 성남시 분당구 판교로256번길 7"),
 ])
 def test_join_address(region, locality, street, expected):
-    from app.parsers.common import join_address
+    from app.parsers.html import join_address
     assert join_address(region, locality, street) == expected
 
 
