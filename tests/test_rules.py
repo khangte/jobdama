@@ -16,7 +16,7 @@ CANON = "https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=54220010"
 ])
 def test_normalize_ok(raw):
     n = normalize(raw)
-    assert n.url == CANON and n.rec_idx == "54220010"
+    assert n.url == CANON and n.ident == "54220010"
 
 
 @pytest.mark.parametrize("raw", [

@@ -9,7 +9,7 @@ import re
 
 from selectolax.lexbor import LexborHTMLParser
 
-from app.models import Posting
+from app.models import KST, Posting
 from app.parsers.common import (
     classify_career, clean, clean_page_title, dl_pairs, employment_label, extract_sections, find_label,
     format_title, html_to_lines, is_site_default_title, jsonld_company, jsonld_experience, jsonld_jobposting,
@@ -147,8 +147,7 @@ def drop_summary_sections(sections: dict[str, list[str]]) -> dict[str, list[str]
 
 def today_kst():
     from datetime import datetime
-    from zoneinfo import ZoneInfo
-    return datetime.now(ZoneInfo("Asia/Seoul")).date()
+    return datetime.now(KST).date()
 
 
 _JOB_WORDS = re.compile(

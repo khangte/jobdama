@@ -354,7 +354,7 @@ async def test_browser_close_ignores_dead_connection():
         async def stop(self):
             raise RuntimeError("closed")
 
-    b = BrowserFetcher(enabled=True)
+    b = BrowserFetcher()
     b._browser, b._pw = Dead(), Dead()
     await b.close()  # 예외 없이 끝나야 함
     await b.close()  # 두 번 불러도 안전
@@ -392,7 +392,7 @@ async def test_browser_relaunched_after_crash(monkeypatch):
             return new_pw
 
     monkeypatch.setattr(playwright.async_api, "async_playwright", lambda: Starter())
-    b = BrowserFetcher(enabled=True)
+    b = BrowserFetcher()
     dead, old_pw = FakeBrowser(False), FakePW()
     b._browser, b._pw = dead, old_pw
     browser = await b._ensure_browser()

@@ -8,6 +8,9 @@ from datetime import date
 
 from selectolax.lexbor import LexborHTMLParser, LexborNode
 
+from app.models import KST
+
+
 # ---------------------------------------------------------------- 텍스트
 
 _WS_RE = re.compile(r"\s+")
@@ -128,7 +131,6 @@ def parse_iso_deadline(value: str | None) -> date | None:
     if not value:
         return None
     from datetime import datetime
-    from zoneinfo import ZoneInfo
 
     s = str(value).strip().replace("Z", "+00:00")
     try:
@@ -136,7 +138,7 @@ def parse_iso_deadline(value: str | None) -> date | None:
     except ValueError:
         return parse_deadline(s)
     if dt.tzinfo is not None:
-        dt = dt.astimezone(ZoneInfo("Asia/Seoul"))
+        dt = dt.astimezone(KST)
     return dt.date()
 
 

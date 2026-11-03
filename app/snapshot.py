@@ -69,7 +69,7 @@ async def snapshot(raw: str, http: HttpFetcher, browser: BrowserFetcher | None) 
 async def main(urls: list[str]) -> None:
     OUT_DIR.mkdir(exist_ok=True)
     settings = get_settings()
-    browser = BrowserFetcher(enabled=settings.use_playwright) if settings.use_playwright else None
+    browser = BrowserFetcher() if settings.use_playwright else None
     async with httpx.AsyncClient(timeout=settings.http_timeout_sec) as client:
         http = HttpFetcher(client)
         try:

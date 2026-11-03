@@ -144,8 +144,7 @@ class BrowserFetcher:
 
     name = "playwright"
 
-    def __init__(self, enabled: bool, concurrency: int = 2, settle_ms: int = 8000):
-        self.enabled = enabled
+    def __init__(self, concurrency: int = 2, settle_ms: int = 8000):
         self.settle_ms = settle_ms
         self._pw = None
         self._browser = None
@@ -169,8 +168,6 @@ class BrowserFetcher:
             return self._browser
 
     async def fetch(self, url: str, site: Site) -> tuple[str, str]:
-        if not self.enabled:
-            raise FetchError("Playwright 사용 안 함")
         await check_target(url, site)
         browser = await self._ensure_browser()
         async with self._sem:

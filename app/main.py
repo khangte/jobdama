@@ -27,13 +27,13 @@ templates = Jinja2Templates(directory=BASE / "templates")
 async def lifespan(app: FastAPI):
     settings = get_settings()
     http_client = httpx.AsyncClient(timeout=settings.http_timeout_sec)
-    browser = BrowserFetcher(enabled=settings.use_playwright)
+    browser = BrowserFetcher() if settings.use_playwright else None
     store = NotionStore(settings)
     problems = await store.check_schema()
     for p in problems:
         log.warning("노션 점검: %s", p)
     service = JobService(
-        Collector(HttpFetcher(http_client), browser if settings.use_playwright else None),
+        Collector(HttpFetcher(http_client), browser),
         store,
         notion_ready=not problems,
     )
@@ -45,7 +45,8 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         await service.wait_idle()
-        await browser.close()
+        if browser is not None:
+            await browser.close()
         await http_client.aclose()
         await store.aclose()
 

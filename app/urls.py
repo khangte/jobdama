@@ -76,10 +76,6 @@ class NormalizedURL:
     match: tuple[tuple[str, str], ...] = field(default=())
     extra: dict = field(default_factory=dict, compare=False, hash=False)
 
-    @property
-    def rec_idx(self) -> str:  # 사람인 호환
-        return self.ident
-
 
 def extract_urls(text: str) -> list[str]:
     return _URL_RE.findall(text or "")
@@ -207,7 +203,7 @@ def is_private_host_literal(host: str) -> bool:
     return not ip.is_global
 
 
-def is_allowed_fetch_url(url: str, site: Site | None = None) -> bool:
+def is_allowed_fetch_url(url: str, site: Site) -> bool:
     """수집 중 요청·이동 대상이 허용되는지(호스트 기준).
 
     등록 사이트는 해당 사이트 호스트만, 자체 채용 사이트는 사설 주소가 아닌 공개 호스트만 허용한다.
@@ -217,7 +213,6 @@ def is_allowed_fetch_url(url: str, site: Site | None = None) -> bool:
     if parts.scheme not in ("http", "https"):
         return False
     host = (parts.hostname or "").lower()
-    site = site or SARAMIN
     if site is GENERIC:
         return bool(host) and not is_private_host_literal(host)
     return parts.scheme == "https" and site.host_allowed(host)
@@ -234,7 +229,3 @@ def same_posting(target: NormalizedURL, final_url: str) -> bool:
     if final.site is not target.site:
         return True
     return final.ident == target.ident
-
-
-def rec_idx_of(url: str) -> str | None:
-    return dict(parse_qsl(urlsplit(url).query)).get("rec_idx")
