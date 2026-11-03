@@ -3,10 +3,11 @@
 import json
 
 import httpx
+import pytest
 from notion_client import AsyncClient
 
 from app.config import Settings
-from app.notion_store import NotionStore, build_children
+from app.notion_store import NotionError, NotionStore, build_children, extract_notion_id
 from app.parsers.sites import saramin
 from app.collection.urls import normalize
 from tests.helpers import load, parse_saramin
@@ -190,3 +191,12 @@ def test_build_children_has_template_sections():
         for b in blocks if b["type"] == "bulleted_list_item"
     ]
     assert "전형 절차" not in p.sections and "공고에서 확인 불가" in texts
+
+
+def test_extract_notion_id():
+    job_id = "1" * 32
+    dashed = "12345678-1234-1234-1234-123456789abc"
+    assert extract_notion_id(dashed) == dashed.replace("-", "")
+    assert extract_notion_id(f"https://www.notion.so/deadbeef-{job_id}?v={'9' * 32}") == job_id
+    with pytest.raises(NotionError):
+        extract_notion_id("https://www.notion.so/no-id")

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from datetime import datetime
 
 import httpx
@@ -38,6 +39,26 @@ def is_uncertain_write_error(e: Exception) -> bool:
     if isinstance(e, HTTPResponseError):
         return (getattr(e, "status", 0) or 0) >= 500
     return False
+
+
+_ID_RE = re.compile(r"(?<![0-9a-f])[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}(?![0-9a-f])")
+
+
+def extract_notion_id(link: str) -> str:
+    """노션 링크나 ID에서 32자리 ID를 꺼낸다. 링크 뒤 ?v= 보기 ID는 무시한다."""
+    ids = _ID_RE.findall(link.strip().split("?")[0].split("#")[0].lower())
+    if not ids:
+        raise NotionError("노션 링크에서 ID를 찾지 못함")
+    return ids[-1].replace("-", "")
+
+
+def describe_error(e: Exception) -> str:
+    """원인을 짐작할 수 있게 HTTP 상태와 코드를 적는다. 401과 404가 같은 예외 클래스라 이름만으로는 구분이 안 된다."""
+    if isinstance(e, HTTPResponseError):
+        hint = {401: "토큰 확인", 403: "권한 확인", 404: "integration 연결과 링크·ID 확인"}.get(e.status)
+        code = getattr(e.code, "value", e.code)  # 알려진 코드는 APIErrorCode enum으로 온다
+        return f"HTTP {e.status} {code}" + (f": {hint}" if hint else "")
+    return type(e).__name__
 
 
 def page_url(page: dict) -> str:
@@ -137,7 +158,7 @@ class NotionStore:
             try:
                 ds = await self.client.data_sources.retrieve(data_source_id=ds_id)
             except Exception as e:
-                problems.append(f"{name} 접근 실패 ({type(e).__name__}): integration 연결과 ID 확인")
+                problems.append(f"{name} 접근 실패 ({describe_error(e)})")
                 continue
             props = ds.get("properties", {})
             for prop, typ in expected.items():
@@ -145,6 +166,23 @@ class NotionStore:
                 if actual != typ:
                     problems.append(f"{name}: '{prop}' 속성이 없거나 형식이 다름 (기대 {typ}, 실제 {actual})")
         return problems
+
+    async def resolve_data_source_id(self, link: str) -> str:
+        """링크가 data source면 그 ID, database면 그 안의 유일한 data source ID를 돌려준다."""
+        nid = extract_notion_id(link)
+        try:
+            await self.client.data_sources.retrieve(data_source_id=nid)
+            return nid
+        except HTTPResponseError as e:
+            if e.status not in (400, 404):  # 토큰·권한·서버 오류는 database로 다시 물어도 같다
+                raise
+        db = await self.client.databases.retrieve(database_id=nid)
+        sources = db.get("data_sources") or []
+        if not sources:
+            raise NotionError("database에 data source가 없음")
+        if len(sources) > 1:
+            raise NotionError("data source가 여러 개라 고를 수 없음, data source ID를 직접 입력")
+        return sources[0]["id"]
 
     # ------------------------------------------------------------ 공고
     async def find_by_url(self, target: NormalizedURL) -> dict | None:
