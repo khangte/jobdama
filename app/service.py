@@ -79,6 +79,10 @@ class Collector:
                 reasons.append(f"{fetcher.name}: {e}")
                 log.info("수집 실패 %s %s: %s", fetcher.name, target.url, e)
                 continue
+            except Exception as e:  # Playwright Error 등 예상 못 한 오류도 다음 수집기·부분 저장으로 넘긴다
+                reasons.append(f"{fetcher.name}: {type(e).__name__}")
+                log.exception("수집 중 예상 못 한 오류 %s %s", fetcher.name, target.url)
+                continue
             if posting.body_found:
                 return posting
             first = first or posting

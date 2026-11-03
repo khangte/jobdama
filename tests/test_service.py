@@ -161,6 +161,32 @@ async def test_blocked_target_not_retried_in_browser():
     assert job.status is JobStatus.FETCH_FAILED and "내부망" in job.message
 
 
+async def test_unexpected_browser_error_keeps_http_partial():
+    class Crashing(FakeFetcher):
+        async def fetch(self, url, site):
+            self.calls += 1
+            raise RuntimeError("page is navigating")
+
+    url = "https://careers.example.com/jobs/1"
+    shell = "<html><head><title>백엔드 개발자</title></head><body></body></html>"
+    store = FakeStore()
+    svc = make(FakeFetcher(shell), store, Crashing(name="playwright"))
+    job = svc.submit(url)
+    await svc.wait_idle()
+    assert job.status is JobStatus.PARTIAL and len(store.pages) == 1
+
+
+async def test_unexpected_error_on_last_fetcher_is_fetch_failed():
+    class Crashing(FakeFetcher):
+        async def fetch(self, url, site):
+            raise RuntimeError("Target closed")
+
+    svc = make(FakeFetcher(error="HTTP 403"), FakeStore(), Crashing(name="playwright"))
+    job = svc.submit(URL)
+    await svc.wait_idle()
+    assert job.status is JobStatus.FETCH_FAILED and "playwright: RuntimeError" in job.message
+
+
 async def test_create_timeout_but_page_landed_is_not_duplicated():
     store = FakeStore(fail_create_once=True, create_lands_anyway=True)
     svc = make(FakeFetcher(LIVE), store)
