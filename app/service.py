@@ -1,6 +1,6 @@
 """작업 접수와 처리 흐름.
 
-URL 검증·정규화 → (같은 URL 잠금) → 같은 URL 조회 → 수집 → 필드 추출 → 기업 조회·생성 → 공고 페이지 생성
+URL 검증·정규화 → (같은 URL 잠금) → 같은 URL 조회 → 수집·필드 추출(app.collection.collector) → 기업 조회·생성 → 공고 페이지 생성
 
 작업 상태는 단일 서버 프로세스의 메모리에만 보관한다(서버를 재시작하면 목록이 비워진다).
 """
@@ -14,85 +14,21 @@ from dataclasses import replace
 from datetime import datetime
 from typing import Protocol
 
-from app.fetcher import BlockedTarget, FetchError
+from app.collection.collector import Collector
+from app.collection.fetcher import FetchError
+from app.collection.urls import NormalizedURL, UnsupportedURL, normalize
 from app.models import KST, Job, JobStatus, Posting
 from app.notion_store import is_uncertain_write_error, page_url
-from app.parsers.errors import ParseError, PostingMismatch
-from app.parsers.sites import parse_pages
-from app.urls import NormalizedURL, Site, UnsupportedURL, normalize, same_posting
 
 log = logging.getLogger(__name__)
 
 MAX_JOBS_KEPT = 200
 
 
-class Fetcher(Protocol):
-    name: str
-
-    async def fetch(self, url: str, site: Site) -> tuple[str, str]: ...
-
-
 class Store(Protocol):
     async def find_by_url(self, target: NormalizedURL) -> dict | None: ...
     async def find_or_create_company(self, name: str) -> str: ...
     async def create_posting(self, p: Posting, company_page_id: str | None) -> dict: ...
-
-
-class Collector:
-    """사이트별 순서로 수집한다.
-
-    - 기본: httpx → (실패하거나, JS로 그리는 사이트인데 본문이 비면) Playwright
-    - JS로 그릴 수 있는 자체 채용 사이트: 위와 같되 httpx 결과가
-      본문 없이 제목만 있으면 Playwright 결과를 우선한다.
-    - 본문을 별도 페이지로 주는 사이트(잡코리아, 인크루트, 캐치)는 본문 페이지도 같은 수집기로 받는다.
-    """
-
-    def __init__(self, http: Fetcher, browser: Fetcher | None):
-        self.http = http
-        self.browser = browser
-
-    async def _once(self, fetcher: Fetcher, target: NormalizedURL) -> Posting:
-        html, final_url = await fetcher.fetch(target.url, target.site)
-        if not same_posting(target, final_url):
-            raise PostingMismatch("요청한 공고와 다른 공고로 이동됨")
-        pages = {"main": html}
-        body_url = target.extra.get("body_url")
-        if body_url:
-            try:
-                pages["body"], _ = await fetcher.fetch(body_url, target.site)
-            except Exception as e:  # Playwright Error 등도 본문 없이 진행한다
-                log.info("본문 페이지 수집 실패 %s: %s", body_url, e)
-        return parse_pages(target, pages)
-
-    async def collect(self, target: NormalizedURL) -> Posting:
-        reasons: list[str] = []
-        first: Posting | None = None
-        fetchers = [f for f in (self.http, self.browser) if f is not None]
-        for i, fetcher in enumerate(fetchers):
-            is_last = i == len(fetchers) - 1
-            try:
-                posting = await self._once(fetcher, target)
-            except BlockedTarget as e:  # 막힌 주소는 브라우저로 다시 열지 않는다(브라우저는 리디렉션을 미리 막지 못함)
-                reasons.append(f"{fetcher.name}: {e}")
-                break
-            except (FetchError, ParseError) as e:
-                reasons.append(f"{fetcher.name}: {e}")
-                log.info("수집 실패 %s %s: %s", fetcher.name, target.url, e)
-                continue
-            except Exception as e:  # Playwright Error 등 예상 못 한 오류도 다음 수집기·부분 저장으로 넘긴다
-                reasons.append(f"{fetcher.name}: {type(e).__name__}")
-                log.exception("수집 중 예상 못 한 오류 %s %s", fetcher.name, target.url)
-                continue
-            if posting.body_found:
-                return posting
-            first = first or posting
-            reasons.append(f"{fetcher.name}: 본문 구간 없음")
-            # 서버가 HTML을 다 주는 사이트는 브라우저로 다시 열어도 본문이 생기지 않는다(이미지형 공고 등)
-            if not target.site.js_rendered and not is_last:
-                break
-        if first is not None:
-            return first  # 제목은 확인, 본문 미확보 → 부분 저장
-        raise FetchError(" / ".join(reasons) or "수집기 없음")
 
 
 class JobService:

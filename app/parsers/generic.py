@@ -9,10 +9,10 @@ import re
 
 from selectolax.lexbor import LexborHTMLParser
 
-from app.models import KST, Posting
+from app.models import Posting
 from app.parsers.common import (
     classify_career, clean, clean_page_title, employment_label, format_title, is_site_default_title, parse_deadline,
-    parse_iso_deadline,
+    parse_iso_deadline, pick_classifiable, today_kst,
 )
 from app.parsers.html import (
     dl_pairs, find_label, html_to_lines, jsonld_company, jsonld_experience, jsonld_jobposting, jsonld_location,
@@ -20,7 +20,7 @@ from app.parsers.html import (
 )
 from app.parsers.sections import extract_sections, merge_sections
 from app.parsers.errors import ParseError
-from app.urls import GENERIC, NormalizedURL
+from app.collection.urls import GENERIC, NormalizedURL
 
 CONTENT_SELECTORS = ("main", "article", "[role=main]", "#content", "#contents", ".content", "body")
 CAREER_LABELS = ("경력", "경력사항", "경력조건", "지원경력", "경력구분", "Experience")
@@ -122,15 +122,6 @@ def parse_generic(html: str, target: NormalizedURL, body_html: str | None = None
     )
 
 
-def pick_classifiable(*candidates: str | None) -> str | None:
-    """경력 후보 중 select 값으로 분류되는 첫 값. 없으면 처음 나온 값."""
-    present = [c for c in candidates if c]
-    for c in present:
-        if classify_career(c):
-            return c
-    return present[0] if present else None
-
-
 # 공고 요약 영역에 쓰이는 라벨. 구간 항목이 전부 'XX : 값' 형태의 이런 라벨이면 본문이 아니라 요약 영역이다.
 SUMMARY_LABELS = {
     "경력", "학력", "모집직무", "직무", "고용형태", "근무형태", "근무지", "근무지역", "급여", "연봉", "마감일",
@@ -147,11 +138,6 @@ def drop_summary_sections(sections: dict[str, list[str]]) -> dict[str, list[str]
         if not is_summary:
             out[key] = items
     return out
-
-
-def today_kst():
-    from datetime import datetime
-    return datetime.now(KST).date()
 
 
 _JOB_WORDS = re.compile(
@@ -178,9 +164,3 @@ def _short(value: str | None, limit: int = 120) -> str | None:
     if not value:
         return None
     return value if len(value) <= limit else value[:limit].rstrip() + "…"
-
-
-def meta_value(text: str, label: str) -> str | None:
-    """'경력 : 경력 2년이상, 학력 : ...' 같은 메타 설명에서 라벨 값."""
-    m = re.search(rf"{label}\s*[:：]\s*([^,<]+)", text or "")
-    return clean(m.group(1)) if m else None

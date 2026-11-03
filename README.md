@@ -162,7 +162,7 @@ uv run pytest
 
 `tests/fixtures`의 실제 공고 HTML로 파서를 검증하고, 가짜 수집기와 가짜 노션으로 저장 흐름을 검증한다.
 
-사이트 HTML 구조가 바뀌어 파싱이 깨지면, 해당 공고 HTML을 `tests/fixtures`에 추가하고 그 사이트 파서만 고친다.
+사이트 HTML 구조가 바뀌어 파싱이 깨지면, 해당 공고 HTML을 `tests/fixtures`에 추가하고 `app/parsers/sites/`의 그 사이트 파서만 고친다.
 
 ## 구조
 
@@ -170,20 +170,25 @@ uv run pytest
 app/
   main.py           FastAPI 라우트, 시작 시 노션 점검
   service.py        작업 접수, 처리 흐름, URL 잠금, 생성 재시도
-  urls.py           사이트 목록, URL 검증·정규화, 중복 조회 조건
-  fetcher.py        httpx / Playwright 수집기, 봇 확인 화면·내부망 차단
-  parsers/sites.py    사이트별 파서(잡코리아, 인크루트, 원티드, 점핏, 그리팅, 자소설닷컴, 캐치)와 분기
-  parsers/saramin.py  사람인 파서
-  parsers/generic.py  범용 파서(JSON-LD, 메타, dt/dd, 본문 제목)
-  parsers/common.py   경력 분류, 마감일, 공고명 형식, 값 변환
-  parsers/sections.py 본문 구간 발췌(주요 업무, 자격 요건, 우대 사항, 전형 절차)
-  parsers/html.py     HTML·JSON-LD 도우미(줄 추출, 메타값, dt/dd, JSON-LD 필드)
+  collection/
+    urls.py         사이트 목록, URL 검증·정규화, 중복 조회 조건
+    fetcher.py      httpx / Playwright 수집기, 봇 확인 화면·내부망 차단
+    collector.py    수집 순서(httpx → Playwright, 본문 별도 페이지)와 파서 호출
+  parsers/
+    dispatch.py     사이트별 파서 분기(등록 사이트가 아니면 범용 파서)
+    sites/          사이트별 파서(saramin, jobkorea, incruit, wanted, jumpit, greeting, jasoseol, catch)
+    generic.py      범용 파서(JSON-LD, 메타, dt/dd, 본문 제목)
+    common.py       경력 분류, 마감일, 공고명 형식, 값 변환
+    sections.py     본문 구간 발췌(주요 업무, 자격 요건, 우대 사항, 전형 절차)
+    html.py         HTML·JSON-LD 도우미(줄 추출, 메타값, dt/dd, JSON-LD 필드)
   snapshot.py       진단 명령(HTML 저장, 파싱 결과 출력)
   notion_store.py   노션 조회·생성, 페이지 본문 블록
   templates/, static/  화면 (htmx는 static에 포함)
 tests/
-  test_urls.py, test_fetcher.py, test_service.py, test_notion_store.py, test_snapshot.py, test_main.py
+  test_service.py, test_notion_store.py, test_snapshot.py, test_main.py
                     app/의 같은 이름 모듈 검증
-  parsers/          app/parsers/의 같은 이름 모듈 검증(test_sites, test_saramin, test_generic 등)
+  collection/       app/collection/ 검증(test_urls, test_fetcher)
+  parsers/          app/parsers/ 검증(test_sites는 사이트별 파서와 분기, test_saramin, test_generic 등)
+  helpers.py        fixture 읽기 도우미
   fixtures/         실제 공고 HTML
 ```

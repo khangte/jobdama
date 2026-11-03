@@ -5,8 +5,8 @@ from datetime import date
 import pytest
 
 from app.parsers.errors import ParseError
-from app.parsers.sites import parse_pages
-from app.urls import GENERIC, normalize
+from app.parsers.dispatch import parse_pages
+from app.collection.urls import GENERIC, normalize
 from tests.helpers import rd
 
 

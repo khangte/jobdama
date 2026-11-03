@@ -4,10 +4,11 @@ import asyncio
 
 import httpx
 
-from app.fetcher import BlockedTarget, FetchError
+from app.collection.fetcher import BlockedTarget, FetchError
 from app.models import JobStatus
 from app.notion_store import page_url
-from app.service import Collector, JobService
+from app.collection.collector import Collector
+from app.service import JobService
 from tests.helpers import load
 
 LIVE = load("saramin_55434315.html")

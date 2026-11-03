@@ -16,7 +16,7 @@ from urllib.parse import urljoin, urlsplit
 
 import httpx
 
-from app.urls import GENERIC, Site, is_allowed_fetch_url
+from app.collection.urls import GENERIC, Site, is_allowed_fetch_url
 
 log = logging.getLogger(__name__)
 

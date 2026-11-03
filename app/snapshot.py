@@ -16,10 +16,10 @@ from pathlib import Path
 import httpx
 
 from app.config import get_settings
-from app.fetcher import BrowserFetcher, FetchError, HttpFetcher
+from app.collection.fetcher import BrowserFetcher, FetchError, HttpFetcher
 from app.parsers.errors import ParseError
-from app.parsers.sites import parse_pages
-from app.urls import UnsupportedURL, normalize
+from app.parsers.dispatch import parse_pages
+from app.collection.urls import UnsupportedURL, normalize
 
 OUT_DIR = Path("snapshots")
 

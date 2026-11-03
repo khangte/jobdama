@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.urls import (
+from app.collection.urls import (
     CATCH, GENERIC, GREETING, INCRUIT, JASOSEOL, JOBKOREA, JUMPIT, SARAMIN, WANTED, UnsupportedURL, is_allowed_fetch_url,
     normalize, same_posting,
 )

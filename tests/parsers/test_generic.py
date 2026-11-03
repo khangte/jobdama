@@ -6,8 +6,8 @@ import pytest
 
 from app.parsers.errors import ParseError
 from app.parsers.generic import drop_summary_sections
-from app.parsers.sites import parse_pages
-from app.urls import normalize
+from app.parsers.dispatch import parse_pages
+from app.collection.urls import normalize
 
 
 GENERIC_HTML = """<!doctype html><html><head>

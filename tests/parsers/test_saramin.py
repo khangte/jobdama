@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from app.parsers import saramin
+from app.parsers.sites import saramin
 from tests.helpers import load, parse_saramin
 
 

@@ -203,3 +203,27 @@ def is_site_default_title(title: str) -> bool:
     if not core:
         return True
     return any(core == _core(tok) for tok in SITE_TITLE_TOKENS) or core in ("채용", "채용공고", "채용정보", "recruit", "careers")
+
+
+
+def pick_classifiable(*candidates: str | None) -> str | None:
+    """경력 후보 중 select 값으로 분류되는 첫 값. 없으면 처음 나온 값."""
+    present = [c for c in candidates if c]
+    for c in present:
+        if classify_career(c):
+            return c
+    return present[0] if present else None
+
+
+
+def today_kst():
+    from datetime import datetime
+    return datetime.now(KST).date()
+
+
+def split_label(line: str) -> tuple[str | None, str]:
+    """'라벨: 값' 한 줄을 (라벨, 값)으로. 콜론이 없으면 (None, '')."""
+    if ":" in line:
+        k, v = line.split(":", 1)
+        return clean(k), clean(v)
+    return None, ""

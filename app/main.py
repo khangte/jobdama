@@ -13,9 +13,10 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from app.config import get_settings
-from app.fetcher import BrowserFetcher, HttpFetcher
+from app.collection.fetcher import BrowserFetcher, HttpFetcher
 from app.notion_store import NotionStore
-from app.service import Collector, JobService
+from app.collection.collector import Collector
+from app.service import JobService
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("jobdama")

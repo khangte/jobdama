@@ -7,8 +7,8 @@ from notion_client import AsyncClient
 
 from app.config import Settings
 from app.notion_store import NotionStore, build_children
-from app.parsers import saramin
-from app.urls import normalize
+from app.parsers.sites import saramin
+from app.collection.urls import normalize
 from tests.helpers import load, parse_saramin
 
 JOB_DS = "job-ds"

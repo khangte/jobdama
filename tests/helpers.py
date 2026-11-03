@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from app.fetcher import decode_html
-from app.parsers import saramin
+from app.collection.fetcher import decode_html
+from app.parsers.sites import saramin
 
 FIX = Path(__file__).parent / "fixtures"
 

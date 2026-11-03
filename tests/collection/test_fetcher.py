@@ -4,11 +4,11 @@ import httpx
 import playwright.async_api
 import pytest
 
-from app.fetcher import (
+from app.collection.fetcher import (
     BlockedTarget, BrowserFetcher, FetchError, HttpFetcher, check_target, decode_html, is_public_host,
     looks_like_challenge,
 )
-from app.urls import GENERIC, INCRUIT, WANTED
+from app.collection.urls import GENERIC, INCRUIT, WANTED
 from tests.helpers import FIX, rd
 
 

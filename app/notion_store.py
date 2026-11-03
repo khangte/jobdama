@@ -19,7 +19,7 @@ from notion_client.helpers import async_iterate_paginated_api
 from app.config import Settings
 from app.models import KST, SECTION_KEYS, Posting
 from app.parsers.common import normalize_company
-from app.urls import NormalizedURL
+from app.collection.urls import NormalizedURL
 
 log = logging.getLogger(__name__)
 
