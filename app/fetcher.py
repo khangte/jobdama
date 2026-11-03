@@ -154,8 +154,9 @@ class BrowserFetcher:
 
     async def _ensure_browser(self):
         async with self._start_lock:
-            if self._browser is not None:
+            if self._browser is not None and self._browser.is_connected():
                 return self._browser
+            await self.close()  # 죽은 브라우저(메모리 부족 등)와 드라이버를 정리하고 새로 띄운다
             try:
                 from playwright.async_api import async_playwright
             except ImportError:

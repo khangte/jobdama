@@ -342,6 +342,47 @@ async def test_browser_close_ignores_dead_connection():
     await b.close()  # 두 번 불러도 안전
 
 
+async def test_browser_relaunched_after_crash(monkeypatch):
+    import playwright.async_api
+    from app.fetcher import BrowserFetcher
+
+    class FakeBrowser:
+        def __init__(self, alive):
+            self.alive, self.closed = alive, False
+
+        def is_connected(self):
+            return self.alive
+
+        async def close(self):
+            self.closed = True
+
+    class FakePW:
+        def __init__(self):
+            self.chromium = self
+            self.stopped = False
+
+        async def launch(self, headless):
+            return FakeBrowser(True)
+
+        async def stop(self):
+            self.stopped = True
+
+    new_pw = FakePW()
+
+    class Starter:
+        async def start(self):
+            return new_pw
+
+    monkeypatch.setattr(playwright.async_api, "async_playwright", lambda: Starter())
+    b = BrowserFetcher(enabled=True)
+    dead, old_pw = FakeBrowser(False), FakePW()
+    b._browser, b._pw = dead, old_pw
+    browser = await b._ensure_browser()
+    assert browser is not dead and browser.is_connected()
+    assert dead.closed and old_pw.stopped
+    assert await b._ensure_browser() is browser  # 살아 있으면 재사용
+
+
 # ---------------------------------------------------------------- 자소설닷컴, 캐치 (2026-11-03 집 PC에서 받은 HTML)
 
 def test_jasoseol():
