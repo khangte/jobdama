@@ -8,6 +8,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
@@ -52,6 +53,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="채용공고 노션 저장", lifespan=lifespan)
+# DNS rebinding 방어: 다른 사이트 도메인으로 들어온 요청은 거절한다
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1"])
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 
 
