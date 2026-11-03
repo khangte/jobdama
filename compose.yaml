@@ -3,7 +3,6 @@ services:
     build: .
     image: jobdama:latest
     container_name: jobdama
-    env_file: .env
     ports:
       # 이 PC에서만 접속 (http://localhost:8765)
       - "127.0.0.1:8765:8000"
@@ -14,5 +13,13 @@ services:
     # Chromium은 /dev/shm 기본값(64MB)이 작으면 페이지가 깨질 수 있다
     shm_size: "512mb"
     volumes:
+      # 설정 파일: 웹에서 노션 설정을 저장하면 호스트 .env에 남는다.
+      # up 전에 cp .env.example .env로 파일을 만들어 둔다.
+      # create_host_path: false로 .env가 없으면 폴더를 만들지 않고 바로 실패한다
+      - type: bind
+        source: ./.env
+        target: /app/.env
+        bind:
+          create_host_path: false
       # 진단 명령(app.snapshot) 결과를 호스트 폴더로
       - ./snapshots:/app/snapshots
