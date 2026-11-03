@@ -1,0 +1,223 @@
+"""노션 저장소: 같은 URL 조회, 기업 조회·생성, 공고 페이지 생성.
+
+notion-client 3.x (API 2025-09-03, data source 기준)를 사용한다.
+POST 요청은 클라이언트가 429일 때만 자동 재시도하므로, 응답이 끊긴 생성 요청은
+service 쪽에서 '다시 조회 → 없으면 1회 재시도'로 처리한다.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from datetime import datetime
+
+import httpx
+from notion_client import AsyncClient
+from notion_client.errors import HTTPResponseError, RequestTimeoutError
+
+from app.config import Settings
+from app.models import KST, SECTION_KEYS, Posting
+from app.parsers.common import normalize_company
+from app.urls import NormalizedURL
+
+log = logging.getLogger(__name__)
+
+NOT_FOUND_TEXT = "공고에서 확인 불가"
+MAX_TEXT = 1900  # 노션 rich_text 한 덩어리 한도(2000자) 여유
+
+
+class NotionError(Exception):
+    pass
+
+
+def is_uncertain_write_error(e: Exception) -> bool:
+    """요청이 서버에 반영됐는지 알 수 없는 오류(시간 초과, 연결 끊김, 5xx)."""
+    if isinstance(e, (RequestTimeoutError, httpx.TransportError)):
+        return True
+    if isinstance(e, HTTPResponseError):
+        return (getattr(e, "status", 0) or 0) >= 500
+    return False
+
+
+def page_url(page: dict) -> str:
+    return page.get("url") or f"https://www.notion.so/{page['id'].replace('-', '')}"
+
+
+def _rt(text: str, link: str | None = None, bold: bool = False) -> dict:
+    item: dict = {"type": "text", "text": {"content": text[:MAX_TEXT]}}
+    if link:
+        item["text"]["link"] = {"url": link}
+    if bold:
+        item["annotations"] = {"bold": True}
+    return item
+
+
+def _heading(text: str) -> dict:
+    return {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [_rt(text)]}}
+
+
+def _bullet(text: str, link: str | None = None) -> dict:
+    return {"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": [_rt(text, link)]}}
+
+
+def _labeled(label: str, value: str | None) -> dict:
+    return {
+        "object": "block",
+        "type": "bulleted_list_item",
+        "bulleted_list_item": {"rich_text": [_rt(f"{label}: ", bold=True), _rt(value or NOT_FOUND_TEXT)]},
+    }
+
+
+def build_children(p: Posting, collected_at: datetime | None = None) -> list[dict]:
+    collected_at = collected_at or datetime.now(KST)
+    blocks: list[dict] = []
+    if not p.body_found:
+        blocks.append({
+            "object": "block",
+            "type": "callout",
+            "callout": {
+                "rich_text": [_rt("상세 페이지 미확인 - 원문 링크에서 직접 확인 필요")],
+                "icon": {"type": "emoji", "emoji": "⚠️"},
+            },
+        })
+
+    if p.deadline:
+        deadline = p.deadline.isoformat()
+    elif p.deadline_raw:
+        deadline = p.deadline_raw
+    else:
+        deadline = None
+    if deadline and p.expired:
+        deadline += " (마감된 공고)"
+
+    blocks.append(_heading("공고 요약"))
+    blocks += [
+        _labeled("기업", p.company),
+        _labeled("출처", p.source),
+        _labeled("근무지", p.location),
+        _labeled("경력 조건", p.career_raw),
+        _labeled("고용 형태", p.employment_type),
+        _labeled("마감일", deadline),
+        _labeled("수집일", collected_at.date().isoformat()),
+    ]
+    for key in SECTION_KEYS:
+        blocks.append(_heading(key))
+        items = p.sections.get(key) or []
+        blocks += [_bullet(i) for i in items] if items else [_bullet(NOT_FOUND_TEXT)]
+    blocks.append(_heading("원문 링크"))
+    blocks.append(_bullet(p.url, link=p.url))
+    return blocks
+
+
+class NotionStore:
+    def __init__(self, settings: Settings, client: AsyncClient | None = None):
+        self.s = settings
+        self.client = client or AsyncClient(auth=settings.notion_token, timeout_ms=30_000)
+        self._company_locks: dict[str, asyncio.Lock] = {}
+
+    # ------------------------------------------------------------ 점검
+    async def check_schema(self) -> list[str]:
+        """시작 시 DB 속성 이름·형식 점검. 문제 목록을 돌려준다(없으면 빈 목록)."""
+        s = self.s
+        if not s.notion_token:
+            return ["NOTION_TOKEN이 설정되지 않음 (.env 확인)"]
+        if not (s.job_data_source_id and s.company_data_source_id):
+            return ["JOB_DATA_SOURCE_ID / COMPANY_DATA_SOURCE_ID가 설정되지 않음 (.env 확인)"]
+        problems: list[str] = []
+        expected_jobs = {
+            s.prop_title: "title", s.prop_company: "relation", s.prop_deadline: "date",
+            s.prop_career: "select", s.prop_url: "url", s.prop_stage: "status",
+        }
+        expected_company = {s.company_prop_title: "title", s.company_prop_status: "select"}
+        for ds_id, expected, name in (
+            (s.job_data_source_id, expected_jobs, "채용 지원 관리 DB"),
+            (s.company_data_source_id, expected_company, "관심 기업 리스트 DB"),
+        ):
+            try:
+                ds = await self.client.data_sources.retrieve(data_source_id=ds_id)
+            except Exception as e:
+                problems.append(f"{name} 접근 실패 ({type(e).__name__}): integration 연결과 ID 확인")
+                continue
+            props = ds.get("properties", {})
+            for prop, typ in expected.items():
+                actual = props.get(prop, {}).get("type")
+                if actual != typ:
+                    problems.append(f"{name}: '{prop}' 속성이 없거나 형식이 다름 (기대 {typ}, 실제 {actual})")
+        return problems
+
+    # ------------------------------------------------------------ 공고
+    async def find_by_url(self, target: NormalizedURL) -> dict | None:
+        """같은 공고 URL이 이미 있는지. 예전에 다른 형식(추적 파라미터 포함 등)으로 저장한 URL도 함께 찾는다."""
+        prop = self.s.prop_url
+        conditions = [{"property": prop, "url": {"equals": target.url}}]
+        conditions += [{"property": prop, "url": {op: value}} for op, value in target.match]
+        filt = {"or": conditions} if len(conditions) > 1 else conditions[0]
+        res = await self.client.data_sources.query(
+            data_source_id=self.s.job_data_source_id,
+            filter=filt,
+            sorts=[{"timestamp": "created_time", "direction": "descending"}],
+            page_size=5,
+        )
+        results = res.get("results", [])
+        return results[0] if results else None
+
+    async def create_posting(self, p: Posting, company_page_id: str | None) -> dict:
+        s = self.s
+        props: dict = {
+            s.prop_title: {"title": [_rt(p.title)]},
+            s.prop_url: {"url": p.url},
+            s.prop_stage: {"status": {"name": s.stage_default}},
+        }
+        if company_page_id:
+            props[s.prop_company] = {"relation": [{"id": company_page_id}]}
+        if p.deadline:
+            props[s.prop_deadline] = {"date": {"start": p.deadline.isoformat()}}
+        if p.career_select:
+            props[s.prop_career] = {"select": {"name": p.career_select}}
+        return await self.client.pages.create(
+            parent={"type": "data_source_id", "data_source_id": s.job_data_source_id},
+            properties=props,
+            children=build_children(p),
+        )
+
+    # ------------------------------------------------------------ 기업
+    async def find_or_create_company(self, name: str) -> str:
+        key = normalize_company(name)
+        if not key:
+            raise NotionError("기업명이 비어 있음")
+        lock = self._company_locks.setdefault(key, asyncio.Lock())
+        async with lock:
+            found = await self._find_company(name, key)
+            if found:
+                return found
+            page = await self.client.pages.create(
+                parent={"type": "data_source_id", "data_source_id": self.s.company_data_source_id},
+                properties={
+                    self.s.company_prop_title: {"title": [_rt(name)]},
+                    self.s.company_prop_status: {"select": {"name": self.s.company_status_default}},
+                },
+            )
+            return page["id"]
+
+    async def _find_company(self, name: str, key: str) -> str | None:
+        # 제목 contains 검색은 원문 이름과 (주) 등을 뺀 이름 두 가지로 시도하고, 정규화 결과가 같은 것만 인정한다.
+        stripped = name
+        for token in ("(주)", "㈜", "주식회사"):
+            stripped = stripped.replace(token, "")
+        terms = list(dict.fromkeys(t.strip() for t in (name, stripped) if t.strip()))
+        filt = {"or": [{"property": self.s.company_prop_title, "title": {"contains": t}} for t in terms]}
+        res = await self.client.data_sources.query(
+            data_source_id=self.s.company_data_source_id,
+            filter=filt,
+            sorts=[{"timestamp": "created_time", "direction": "ascending"}],
+            page_size=20,
+        )
+        for page in res.get("results", []):
+            title_prop = page.get("properties", {}).get(self.s.company_prop_title, {})
+            title = "".join(t.get("plain_text", "") for t in title_prop.get("title", []))
+            if normalize_company(title) == key:
+                return page["id"]
+        return None
+
+    async def aclose(self) -> None:
+        await self.client.aclose()

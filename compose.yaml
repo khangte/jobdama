@@ -1,0 +1,18 @@
+services:
+  jobdama:
+    build: .
+    image: jobdama:latest
+    container_name: jobdama
+    env_file: .env
+    ports:
+      # 이 PC에서만 접속 (http://localhost:8765)
+      - "127.0.0.1:8765:8000"
+    # Docker Desktop이 켜지면 자동으로 다시 뜬다. 직접 docker compose stop 하면 그대로 꺼져 있다
+    restart: unless-stopped
+    # Chromium 하위 프로세스 정리와 Ctrl+C·stop 신호 전달
+    init: true
+    # Chromium은 /dev/shm 기본값(64MB)이 작으면 페이지가 깨질 수 있다
+    shm_size: "512mb"
+    volumes:
+      # 진단 명령(app.snapshot) 결과를 호스트 폴더로
+      - ./snapshots:/app/snapshots

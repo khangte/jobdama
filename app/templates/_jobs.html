@@ -1,0 +1,23 @@
+{% if not jobs %}
+<p class="empty">아직 접수한 링크가 없다.</p>
+{% else %}
+<ol class="jobs">
+  {% for job in jobs %}
+  <li class="job {{ job.status.css }}">
+    <span class="badge {{ job.status.css }}">{{ job.status.value }}</span>
+    <div class="body">
+      <div class="title">
+        {% if job.title %}{{ job.title }}{% else %}<span class="url">{{ job.normalized_url or job.input_url }}</span>{% endif %}
+      </div>
+      {% if job.message %}<div class="msg">{{ job.message }}</div>{% endif %}
+      <div class="meta">
+        <time>{{ job.created_at.strftime('%H:%M:%S') }}</time>
+        {% if job.site %}<span>{{ job.site }}</span>{% endif %}
+        {% if job.notion_url %}<a href="{{ job.notion_url }}" target="_blank" rel="noopener">노션 열기</a>{% endif %}
+        {% if job.normalized_url %}<a href="{{ job.normalized_url }}" target="_blank" rel="noopener">원문</a>{% endif %}
+      </div>
+    </div>
+  </li>
+  {% endfor %}
+</ol>
+{% endif %}

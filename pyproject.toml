@@ -1,0 +1,26 @@
+[project]
+name = "jobdama"
+version = "0.1.0"
+description = "채용공고 링크를 붙여넣으면 노션 채용 지원 관리 DB에 저장하는 로컬 웹"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "httpx>=0.27",
+    "selectolax>=0.3.21",
+    "jinja2>=3.1",
+    "pydantic-settings>=2.4",
+    "notion-client>=3.1",
+    "playwright>=1.47",
+    "tzdata>=2024.1",  # 컨테이너에 시간대 DB가 없어도 Asia/Seoul을 쓰기 위해
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
