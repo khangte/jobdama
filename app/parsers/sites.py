@@ -24,7 +24,6 @@ from app.parsers.common import (
     classify_career, clean, employment_label, extract_sections, format_title, html_to_lines, itemize, jsonld_jobposting,
     merge_sections, meta_content, next_data, parse_deadline, parse_iso_deadline,
 )
-from app.parsers.errors import ParseError
 from app.parsers.generic import meta_value, parse_generic, today_kst
 from app.parsers.generic import pick_classifiable
 from app.urls import (
@@ -280,6 +279,3 @@ def _greeting_career(c: dict) -> tuple[str | None, str | None]:
     if typ:
         return typ, None
     return None, None
-
-
-__all__ = ["parse_pages", "ParseError"]
