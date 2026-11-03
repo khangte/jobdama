@@ -485,3 +485,19 @@ def test_sites_location_with_region():
     assert jss.location == "경기 성남시 분당구 대왕판교로645번길 16"
     catch = parse_pages(normalize("https://www.catch.co.kr/NCS/RecruitInfoDetails/578555"), {"main": rd("catch_578555.html")})
     assert catch.location == "서울 구로구 디지털로26길 72"
+
+
+async def test_snapshot_file_names_keep_dots(tmp_path, monkeypatch):
+    import app.snapshot as snap
+
+    class Fake:
+        def __init__(self, name):
+            self.name = name
+
+        async def fetch(self, url, site):
+            return f"<html><title>{self.name} {url}</title></html>", url
+
+    monkeypatch.setattr(snap, "OUT_DIR", tmp_path)
+    for u in ("https://careers.example.com/jobs/1", "https://careers.example.com/jobs/2"):
+        await snap.snapshot(u, Fake("httpx"), Fake("playwright"))
+    assert len(list(tmp_path.glob("*.html"))) == 4  # URL 2개 × 수집기 2개가 서로 덮어쓰지 않음

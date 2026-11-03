@@ -45,7 +45,7 @@ async def snapshot(raw: str, http: HttpFetcher, browser: BrowserFetcher | None) 
         except FetchError as e:
             print(f"  [{fetcher.name}] 수집 실패: {e}")
             continue
-        stem.with_suffix(".html").write_text(html, encoding="utf-8")
+        Path(f"{stem}.html").write_text(html, encoding="utf-8")  # with_suffix는 이름 속 점(도메인)을 확장자로 오인한다
         pages = {"main": html}
         body_url = target.extra.get("body_url")
         if body_url:
