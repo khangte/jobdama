@@ -77,6 +77,8 @@ def classify_career(raw: str | None) -> str | None:
         return "경력무관"
     if has_new:
         return "신입"
+    if re.search(r"\d+\s*년?\s*(?:이하|미만|↓)", s):  # 상한만 있는 표기는 최소 연차를 알 수 없다
+        return None
     m = re.search(r"(\d+)\s*(?:년|~|-|–|↑|이상)", s)
     if m:
         years = int(m.group(1))

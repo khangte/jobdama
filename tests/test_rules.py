@@ -68,6 +68,9 @@ def test_redirect_allowlist():
     ("경력 5년↑", "3년 이상"),
     ("", None),
     ("경력", None),
+    ("경력 3년 이하", None),
+    ("경력 1년 미만", None),
+    ("경력 3년↓", None),
 ])
 def test_classify_career(raw, expected):
     assert classify_career(raw) == expected
