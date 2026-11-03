@@ -60,7 +60,7 @@ class Collector:
         if body_url:
             try:
                 pages["body"], _ = await fetcher.fetch(body_url, target.site)
-            except FetchError as e:
+            except Exception as e:  # Playwright Error 등도 본문 없이 진행한다
                 log.info("본문 페이지 수집 실패 %s: %s", body_url, e)
         return parse_pages(target, pages)
 

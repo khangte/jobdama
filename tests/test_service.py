@@ -266,6 +266,14 @@ async def test_jobkorea_body_page_failure_is_partial():
     assert job.status is JobStatus.PARTIAL
 
 
+async def test_jobkorea_body_page_unexpected_error_is_partial():
+    http = UrlFetcher({"GI_Read_Comt_Ifrm": RuntimeError("page is navigating"), "GI_Read/49874788": JK_MAIN})
+    svc = make(http, FakeStore())
+    job = svc.submit("https://www.jobkorea.co.kr/Recruit/GI_Read/49874788")
+    await svc.wait_idle()
+    assert job.status is JobStatus.PARTIAL
+
+
 SPA_SHELL = "<html><head><title>Careers</title></head><body><div id='__next'></div></body></html>"
 SPA_RENDERED = """<html><head><title>Careers</title></head><body><main><h1>데이터 엔지니어 신입</h1>
 <dl><dt>경력</dt><dd>신입</dd></dl><h3>주요업무</h3><ul><li>ETL 개발</li></ul></main></body></html>"""
