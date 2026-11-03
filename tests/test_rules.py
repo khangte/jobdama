@@ -90,6 +90,8 @@ def test_parse_deadline(raw, expected):
     ("넥스블루 DataBase 엔지니어 신입 모집", "(주)넥스블루", "[(주)넥스블루] DataBase 엔지니어 신입 모집"),
     ("[신입] CGMS 알고리즘 개발 채용", "(주)아이센스", "[(주)아이센스] [신입] CGMS 알고리즘 개발 채용"),
     ("데이터 엔지니어", None, "데이터 엔지니어"),
+    ("토스뱅크 Server Developer", "토스", "[토스] 토스뱅크 Server Developer"),
+    ("카카오페이 백엔드 개발자", "카카오", "[카카오] 카카오페이 백엔드 개발자"),
 ])
 def test_format_title(raw, company, expected):
     assert format_title(raw, company) == expected

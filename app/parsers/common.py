@@ -50,7 +50,10 @@ def format_title(raw_title: str, company: str | None) -> str:
             plain = clean(_CORP_RE.sub("", company))
             for prefix in (company, plain):
                 if prefix and title.startswith(prefix):
-                    title = title[len(prefix):].lstrip(" -_|:·")
+                    rest = title[len(prefix):]
+                    if rest[:1].isalnum():  # '토스'와 '토스뱅크'처럼 단어 중간이면 자르지 않는다
+                        continue
+                    title = rest.lstrip(" -_|:·")
                     break
     return f"[{company}] {title}".strip()
 
