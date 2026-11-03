@@ -3,40 +3,116 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>잡담아</title>
+  <meta name="color-scheme" content="light">
+  <title>잡담아 · 채용공고 담기</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/htmx.min.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
 <body>
-  <main>
-    <header>
-      <h1>잡담아</h1>
-      <p class="sub">채용공고 링크를 붙여넣으면 노션 채용 지원 관리 DB에 바로 저장한다.</p>
-      <p class="sites">사람인 · 잡코리아 · 원티드 · 인크루트 · 점핏 · 그리팅 · 자소설닷컴 · 캐치 · 기업 채용 사이트</p>
-    </header>
+  <a class="skip-link" href="#url">공고 입력으로 건너뛰기</a>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="잡담아 홈">
+      <span class="brand-mark" aria-hidden="true">jd.</span>
+      <span class="brand-word">잡담아<small>JOBDAMA</small></span>
+    </a>
+    <div class="navigation">
+      <span class="nav-current">공고 담기</span>
+      <span class="connection{% if problems %} connection-warning{% endif %}">
+        <span class="connection-dot" aria-hidden="true"></span>
+        {% if problems %}연결 확인 필요{% else %}Notion 연결됨{% endif %}
+      </span>
+    </div>
+  </header>
 
-    {% if problems %}
-    <section class="banner" role="alert">
-      <strong>노션 설정 확인 필요</strong>
-      <ul>{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul>
-      <form method="post" action="/api/recheck"><button type="submit">다시 점검</button></form>
-    </section>
-    {% endif %}
-
-    <label class="input-wrap" for="url">
-      <span class="sr-only">공고 링크</span>
-      <input id="url" type="text" inputmode="url" autocomplete="off" spellcheck="false" autofocus
-             placeholder="여기에 공고 링크를 붙여넣기 (Ctrl+V)">
-    </label>
-    <p class="hint" id="hint">붙여넣는 즉시 접수된다. 직접 입력했다면 Enter.</p>
-
-    <section aria-live="polite">
-      <div id="jobs" hx-get="/jobs" hx-trigger="load, every 1s, job-submitted from:body" hx-swap="innerHTML">
-        {% include "_jobs.html" ignore missing with context %}
+  <main class="workspace">
+    <div class="intro">
+      <div>
+        <p class="eyebrow">COLLECT YOUR NEXT OPPORTUNITY</p>
+        <h1>발견한 기회,<br class="mobile-break"> 여기에 담아두세요.</h1>
+        <p class="subtitle">채용공고 링크만 붙여넣으세요.<br class="mobile-break"> 공고 정보는 Notion에 차곡차곡 정리해 드릴게요.</p>
       </div>
-    </section>
+      <p class="intro-note">나의 작은 채용 수집함</p>
+    </div>
+
+    <div class="workspace-columns">
+      <div class="collection">
+        {% if problems %}
+        <section class="connection-alert" aria-labelledby="connection-title" role="alert">
+          <span class="alert-symbol" aria-hidden="true">!</span>
+          <div>
+            <h2 id="connection-title">Notion 연결을 확인해 주세요</h2>
+            <p>채용 지원 관리 데이터베이스에 연결할 수 없어요.<br>설정과 Notion 데이터베이스의 연결 권한을 확인해 주세요.</p>
+            <details class="connection-details">
+              <summary>자세한 연결 문제 보기</summary>
+              <ul>{% for problem in problems %}<li>{{ problem }}</li>{% endfor %}</ul>
+            </details>
+            <form method="post" action="/api/recheck"><button class="recheck-button" type="submit">다시 점검</button></form>
+          </div>
+        </section>
+        {% endif %}
+
+        <section class="card composer{% if problems %} composer-disabled{% endif %}" aria-labelledby="input-title">
+          <div class="input-heading">
+            <label id="input-title" for="url">채용공고 링크</label>
+            <span class="keyboard-hint" aria-hidden="true"><span class="desktop-shortcut">Ctrl + V</span><span class="mobile-shortcut">붙여넣기</span></span>
+          </div>
+          <form id="job-form">
+            <div class="url-field">
+              <span class="link-icon" aria-hidden="true">↗</span>
+              <input id="url" name="url" type="text" inputmode="url" autocomplete="off" spellcheck="false"
+                     aria-describedby="hint" placeholder="관심 있는 채용공고 링크를 붙여넣으세요"
+                     {% if problems %}disabled{% else %}autofocus{% endif %}>
+            </div>
+            <button class="sr-only" type="submit"{% if problems %} disabled{% endif %}>공고 담기</button>
+          </form>
+          <div class="input-help">
+            <p id="hint" role="status">{% if problems %}연결을 확인한 뒤 공고를 담을 수 있어요.{% else %}붙여넣으면 바로 접수돼요. 직접 입력했다면 Enter.{% endif %}</p>
+            {% if not problems %}<span>여러 링크도 한 번에</span>{% endif %}
+          </div>
+        </section>
+
+        <section aria-label="접수한 공고">
+          <div id="jobs" hx-get="/jobs" hx-trigger="every 1s, job-submitted from:body" hx-swap="innerHTML">
+            {% include "_jobs.html" %}
+          </div>
+        </section>
+      </div>
+
+      <aside class="sidebar" aria-label="잡담아 사용 안내">
+        <section class="card guide-card">
+          <h2>공고는 이곳에 담겨요</h2>
+          <div class="destination">
+            <span class="notion-mark" aria-hidden="true">N</span>
+            <div><p>채용 지원 관리</p><span>Notion 데이터베이스</span></div>
+          </div>
+          <ol class="steps">
+            <li><span class="step-number" aria-hidden="true">1</span><div><h3>공고 링크 붙여넣기</h3><p>하나씩 또는 여러 개를 한 번에</p></div></li>
+            <li><span class="step-number" aria-hidden="true">2</span><div><h3>공고 내용 가져오기</h3><p>제목, 기업, 조건과 본문을 확인해요</p></div></li>
+            <li><span class="step-number" aria-hidden="true">3</span><div><h3>Notion에서 이어서 관리</h3><p>지원 단계와 메모를 직접 정리하세요</p></div></li>
+          </ol>
+        </section>
+        <section class="card supported-sites">
+          <h2>이런 링크를 지원해요</h2>
+          <ul class="site-tags">
+            {% for site in ["사람인", "잡코리아", "원티드", "인크루트", "점핏", "그리팅", "자소설닷컴", "캐치", "기업 채용"] %}
+            <li>{{ site }}</li>
+            {% endfor %}
+          </ul>
+          <p class="site-note">기업 자체 채용 사이트도 담을 수 있어요.<br>사이트에 따라 일부 내용은 누락될 수 있어요.</p>
+        </section>
+        <section class="duplicate-tip">
+          <h2>중복 걱정 없이 담으세요</h2>
+          <p>이미 저장한 공고는 다시 만들지 않고<br>기존 Notion 페이지를 연결해 드려요.</p>
+        </section>
+      </aside>
+    </div>
+
+    <footer class="footer">
+      <span>잡담아 · 관심 있는 기회를 가볍게 담는 곳</span>
+      <span>처리 목록은 서버 재시작 시 초기화돼요. Notion에 저장한 공고는 유지돼요.</span>
+    </footer>
   </main>
 </body>
 </html>

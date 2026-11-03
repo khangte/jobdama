@@ -1,20 +1,32 @@
+<div class="results-heading">
+  <h2>담은 공고 <span class="count">{{ jobs|length }}</span></h2>
+  <span>이번 실행에서 접수한 공고</span>
+</div>
 {% if not jobs %}
-<p class="empty">아직 접수한 링크가 없다.</p>
+<div class="card empty-state">
+  <span class="empty-mark" aria-hidden="true">↗</span>
+  <h3>첫 번째 공고를 담아볼까요?</h3>
+  <p>마음에 드는 공고 링크만 가져오세요.<br>공고 정보 정리는 잡담아가 도와드릴게요.</p>
+  <span class="empty-flow">공고 링크 → 내용 수집 → Notion 저장</span>
+</div>
 {% else %}
 <ol class="jobs">
   {% for job in jobs %}
-  <li class="job {{ job.status.css }}">
-    <span class="badge {{ job.status.css }}">{{ job.status.value }}</span>
-    <div class="body">
-      <div class="title">
-        {% if job.title %}{{ job.title }}{% else %}<span class="url">{{ job.normalized_url or job.input_url }}</span>{% endif %}
+  <li class="card job {{ job.status.css }}" data-job-id="{{ job.id }}">
+    <span class="company-mark" aria-hidden="true">{% if job.title %}{{ job.title.lstrip('[')[:1] }}{% else %}↗{% endif %}</span>
+    <div class="job-body">
+      <div class="job-heading">
+        <h3 class="job-title">{% if job.title %}{{ job.title }}{% elif job.status.css == 'processing' %}공고 정보를 가져오고 있어요{% else %}{{ job.normalized_url or job.input_url }}{% endif %}</h3>
+        <span class="badge {{ job.status.css }}">{{ job.status.value }}</span>
       </div>
-      {% if job.message %}<div class="msg">{{ job.message }}</div>{% endif %}
-      <div class="meta">
-        <time>{{ job.created_at.strftime('%H:%M:%S') }}</time>
-        {% if job.site %}<span>{{ job.site }}</span>{% endif %}
-        {% if job.notion_url %}<a href="{{ job.notion_url }}" target="_blank" rel="noopener">노션 열기</a>{% endif %}
-        {% if job.normalized_url %}<a href="{{ job.normalized_url }}" target="_blank" rel="noopener">원문</a>{% endif %}
+      <p class="job-message">{% if job.message %}{{ job.message }}{% elif job.status.css == 'processing' %}공고 내용을 확인하는 중이에요. 잠시만 기다려 주세요.{% elif job.status.css == 'saved' %}주요 업무, 자격 요건 등 공고 본문을 함께 저장했어요.{% endif %}</p>
+      <div class="job-meta">
+        {% if job.site %}<span class="site-label">{{ job.site }}</span>{% endif %}
+        <time datetime="{{ job.created_at.isoformat() }}">{{ job.created_at.strftime('%H:%M:%S') }}</time>
+        <div class="job-links">
+          {% if job.notion_url %}<a class="notion-link" href="{{ job.notion_url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ job.title or '공고' }} Notion 열기 (새 창)">Notion 열기 <span aria-hidden="true">↗</span></a>{% endif %}
+          {% if job.normalized_url %}<a href="{{ job.normalized_url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ job.title or '공고' }} 원문 (새 창)">원문 <span aria-hidden="true">↗</span></a>{% endif %}
+        </div>
       </div>
     </div>
   </li>

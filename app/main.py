@@ -65,7 +65,11 @@ class SubmitIn(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse(request, "index.html", {"problems": request.app.state.problems})
+    s = request.app.state
+    return templates.TemplateResponse(request, "index.html", {
+        "problems": s.problems,
+        "jobs": s.service.recent(s.settings.max_jobs_shown),
+    })
 
 
 @app.post("/api/jobs", status_code=202)
