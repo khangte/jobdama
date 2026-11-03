@@ -151,7 +151,7 @@ def today_kst():
 
 
 _JOB_WORDS = re.compile(
-    r"채용|모집|공고|인턴|신입|경력|recruit|career|job|position|posting|opening|hiring|vacanc|apply", re.I)
+    r"채용|모집|공고|인턴|신입|경력|recruit|career|job|position|posting|opening|hiring|vacanc|apply", re.IGNORECASE)
 
 
 def _looks_like_job(url: str, title: str) -> bool:

@@ -22,7 +22,7 @@ from app.parsers.common import (
 )
 
 
-from app.parsers.errors import ParseError, PostingMismatch  # noqa: E402,F401  (기존 import 경로 호환)
+from app.parsers.errors import ParseError, PostingMismatch
 
 
 def _text(node: LexborNode | None) -> str:

@@ -19,8 +19,17 @@ dependencies = [
 dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
+    "ruff>=0.17.3",
 ]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120  # 기존 코드 줄 길이에 맞춘다
+
+[tool.ruff.lint]
+# I001: 관련 이름을 한 줄에 묶는 기존 import 스타일을 유지한다(ruff isort는 한 줄에 하나씩만 지원)
+# BLE001: 외부 라이브러리(노션·Playwright) 예외를 사용자 메시지·상태로 바꾸는 경계라서 Exception을 일부러 잡는다
+ignore = ["I001", "BLE001"]

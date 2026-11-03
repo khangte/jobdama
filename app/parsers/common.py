@@ -321,7 +321,7 @@ def node_lines(node: LexborNode | None) -> list[str]:
 def html_to_lines(fragment: str | None) -> list[str]:
     if not fragment:
         return []
-    fragment = re.sub(r"<br\s*/?>", "\n", fragment, flags=re.I)
+    fragment = re.sub(r"<br\s*/?>", "\n", fragment, flags=re.IGNORECASE)
     tree = LexborHTMLParser(f"<div id='__root'>{fragment}</div>")
     return node_lines(tree.css_first("#__root"))
 

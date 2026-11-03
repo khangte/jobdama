@@ -122,8 +122,8 @@ def normalize(raw: str) -> NormalizedURL:
         raise UnsupportedURL("점핏 포지션 상세 링크가 아님")
 
     if site is JOBKOREA:
-        n = _num(re.fullmatch(r"/recruit/gi_read/(\d+)", path, re.I))
-        if n is None and re.fullmatch(r"/recruit/gi_read_comt_ifrm", path, re.I):
+        n = _num(re.fullmatch(r"/recruit/gi_read/(\d+)", path, re.IGNORECASE))
+        if n is None and re.fullmatch(r"/recruit/gi_read_comt_ifrm", path, re.IGNORECASE):
             n = query.get("gno") if (query.get("gno") or "").isdigit() else None
         if n:
             return NormalizedURL(JOBKOREA, f"https://www.jobkorea.co.kr/Recruit/GI_Read/{n}", n,
@@ -148,7 +148,7 @@ def normalize(raw: str) -> NormalizedURL:
         raise UnsupportedURL("인크루트 공고 상세 링크가 아님")
 
     if site is CATCH:
-        n = _num(re.fullmatch(r"/ncs/recruitinfodetails/(\d+)", path, re.I))
+        n = _num(re.fullmatch(r"/ncs/recruitinfodetails/(\d+)", path, re.IGNORECASE))
         if n:
             return NormalizedURL(CATCH, f"https://www.catch.co.kr/NCS/RecruitInfoDetails/{n}", n,
                                  (("ends_with", f"RecruitInfoDetails/{n}"), ("contains", f"RecruitInfoDetails/{n}?")),
@@ -188,7 +188,7 @@ def _normalize_generic(parts, host: str) -> NormalizedURL:
 
 def is_private_host_literal(host: str) -> bool:
     host = (host or "").strip("[]").lower()
-    if host in ("localhost",) or host.endswith(".localhost") or host.endswith(".local") or host.endswith(".internal"):
+    if host in ("localhost",) or host.endswith((".localhost", ".local", ".internal")):
         return True
     try:
         ip = ipaddress.ip_address(host)

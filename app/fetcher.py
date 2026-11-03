@@ -36,7 +36,7 @@ CHALLENGE_MARKERS = (
     "잠시만 기다려 주십시오", "비정상적인 접근", "접근이 차단",
 )
 
-_CHARSET_RE = re.compile(rb"""<meta[^>]+charset=["']?\s*([A-Za-z0-9_\-]+)""", re.I)
+_CHARSET_RE = re.compile(rb"""<meta[^>]+charset=["']?\s*([A-Za-z0-9_\-]+)""", re.IGNORECASE)
 
 
 class FetchError(Exception):
@@ -63,7 +63,7 @@ def decode_html(content: bytes, header_charset: str | None = None) -> str:
 
 def looks_like_challenge(html: str) -> bool:
     head = html[:6000].lower()
-    m = re.search(r"<title[^>]*>(.*?)</title>", head, re.S)
+    m = re.search(r"<title[^>]*>(.*?)</title>", head, re.DOTALL)
     title = (m.group(1) if m else "").strip()
     if any(k in title for k in CHALLENGE_MARKERS):
         return True
@@ -201,7 +201,7 @@ class BrowserFetcher:
                     raise FetchError(f"브라우저 로딩 실패: {type(e).__name__}")
                 try:  # 화면을 JS로 그리는 사이트는 데이터 요청이 끝날 때까지 잠시 기다린다
                     await page.wait_for_load_state("networkidle", timeout=self.settle_ms)
-                except Exception:
+                except Exception:  # noqa: S110  networkidle 시간 초과는 정상, 그대로 진행
                     pass
                 await check_target(page.url, site)
                 if resp is not None and resp.status >= 400:

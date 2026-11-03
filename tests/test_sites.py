@@ -107,7 +107,7 @@ def test_incruit_euc_kr():
     assert p.career_select == "경력무관"
     assert p.employment_type == "정규직"
     assert p.deadline == date(2026, 11, 5)
-    assert "고용형태별" not in " ".join(sum(p.sections.values(), []))  # 메뉴 문구를 본문으로 오인하지 않음
+    assert "고용형태별" not in " ".join(x for v in p.sections.values() for x in v)  # 메뉴 문구를 본문으로 오인하지 않음
 
 
 def test_greeting():
@@ -155,7 +155,7 @@ def test_generic_company_site():
     assert p.sections["주요 업무"] == ["CGMS 생체신호처리 알고리즘 연구 및 개발", "머신러닝 기반 모델 설계 및 최적화"]
     assert p.sections["자격 요건"][0] == "석사 학위 이상 소지자"
     assert p.employment_type and p.employment_type.startswith("정규직")
-    assert "회사 소개" not in " ".join(sum(p.sections.values(), []))
+    assert "회사 소개" not in " ".join(x for v in p.sections.values() for x in v)
 
 
 def test_generic_jsonld_preferred():
@@ -264,11 +264,11 @@ async def test_http_fetcher_retries_once_on_dropped_connection():
         calls["n"] += 1
         if calls["n"] == 1:
             raise httpx.RemoteProtocolError("Server disconnected")
-        return httpx.Response(200, content="<html><title>ok</title></html>".encode(),
+        return httpx.Response(200, content=b"<html><title>ok</title></html>",
                               headers={"content-type": "text/html; charset=euc-kr"})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
-        html, final = await HttpFetcher(c).fetch("https://job.incruit.com/jobdb_info/jobpost.asp?job=1", INCRUIT)
+        html, _ = await HttpFetcher(c).fetch("https://job.incruit.com/jobdb_info/jobpost.asp?job=1", INCRUIT)
     assert "ok" in html and calls["n"] == 2
 
 
