@@ -217,6 +217,24 @@ async def test_internal_target_raises_blocked():
         await check_target("http://127.0.0.1/careers", GENERIC)
 
 
+async def test_http_redirect_to_internal_is_blocked_before_request():
+    import httpx
+    import pytest
+    from app.fetcher import BlockedTarget, HttpFetcher
+    from app.urls import GENERIC
+
+    seen = []
+
+    def handler(req: httpx.Request):
+        seen.append(str(req.url))
+        return httpx.Response(302, headers={"Location": "http://127.0.0.1/admin"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(BlockedTarget):
+            await HttpFetcher(client).fetch("http://8.8.8.8/jobs/1", GENERIC)
+    assert seen == ["http://8.8.8.8/jobs/1"]  # 내부 주소로는 요청하지 않음
+
+
 def test_decode_html_meta_charset():
     raw = '<html><head><meta charset="euc-kr"></head><body>경력무관</body></html>'.encode("cp949")
     assert "경력무관" in decode_html(raw, None)
