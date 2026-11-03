@@ -11,8 +11,6 @@ import re
 from dataclasses import dataclass, field
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-_URL_RE = re.compile(r"https?://[^\s<>\"']+")
-
 # 공고 식별값이 아닌 추적·유입 파라미터
 TRACKING_PARAMS = {
     "gclid", "fbclid", "igshid", "mc_cid", "mc_eid", "ref", "referrer", "source", "src",
@@ -75,10 +73,6 @@ class NormalizedURL:
     # 노션 URL 속성 중복 조회 조건 (연산자, 값). equals(url)은 항상 포함한다.
     match: tuple[tuple[str, str], ...] = field(default=())
     extra: dict = field(default_factory=dict, compare=False, hash=False)
-
-
-def extract_urls(text: str) -> list[str]:
-    return _URL_RE.findall(text or "")
 
 
 def site_for_host(host: str) -> Site | None:

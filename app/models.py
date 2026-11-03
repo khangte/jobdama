@@ -32,10 +32,6 @@ class JobStatus(str, Enum):
             JobStatus.INVALID: "failed",
         }[self]
 
-    @property
-    def done(self) -> bool:
-        return self is not JobStatus.PROCESSING
-
 
 @dataclass
 class Job:

@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from app.parsers.common import classify_career, extract_sections, format_title, parse_deadline
-from app.urls import GENERIC, SARAMIN, UnsupportedURL, extract_urls, is_allowed_fetch_url, normalize
+from app.urls import GENERIC, SARAMIN, UnsupportedURL, is_allowed_fetch_url, normalize
 
 CANON = "https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=54220010"
 
@@ -49,11 +49,6 @@ def test_redirect_allowlist():
     assert not is_allowed_fetch_url("https://other.com/", SARAMIN)
     assert is_allowed_fetch_url("https://other.com/", GENERIC)
     assert not is_allowed_fetch_url("http://10.0.0.5/", GENERIC)
-
-
-def test_extract_urls():
-    text = "a https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=1\nhttps://www.saramin.co.kr/zf_user/jobs/view?rec_idx=2 b"
-    assert len(extract_urls(text)) == 2
 
 
 @pytest.mark.parametrize("raw,expected", [
