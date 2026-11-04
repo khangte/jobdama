@@ -119,10 +119,9 @@ async def recheck(request: Request):
 
 class NotionConnectIn(BaseModel):
     notion_token: str
-    job_db: str  # 채용 지원 관리 DB 링크 또는 ID
-    company_db: str  # 관심 기업 리스트 DB 링크 또는 ID
+    job_db: str  # 채용 지원 관리 DB 링크 또는 ID. 관심 기업 리스트 DB는 이 DB의 기업명 relation에서 찾는다
 
-    @field_validator("notion_token", "job_db", "company_db")
+    @field_validator("notion_token", "job_db")
     @classmethod
     def single_token(cls, v: str) -> str:
         v = v.strip()
@@ -131,7 +130,7 @@ class NotionConnectIn(BaseModel):
         return v
 
 
-ENV_KEYS = ("notion_token", "job_data_source_id", "company_data_source_id")
+ENV_KEYS = ("notion_token", "job_data_source_id")
 DISCONNECTED = "노션 연결 해제됨: 웹에서 노션 설정을 입력하거나 재시작하면 .env 값으로 다시 연결"
 _closing: set[asyncio.Task] = set()  # 이전 store를 닫는 백그라운드 작업(참조를 잡아 둬야 GC되지 않는다)
 
@@ -172,20 +171,16 @@ async def connect_notion(body: NotionConnectIn, request: Request):
     store = NotionStore(settings)
     swapped = False
     try:
-        ids = {}
-        for key, link, name in (
-            ("job_data_source_id", body.job_db, "채용 지원 관리 DB"),
-            ("company_data_source_id", body.company_db, "관심 기업 리스트 DB"),
-        ):
-            try:
-                ids[key] = await store.resolve_data_source_id(link)
-            except NotionError as e:
-                return JSONResponse({"problems": [f"{name}: {e}"]}, status_code=400)
-            except Exception as e:
-                # 4xx는 입력 문제, 시간 초과·5xx는 노션 쪽 문제
-                status = 400 if isinstance(e, HTTPResponseError) and e.status < 500 else 502
-                return JSONResponse({"problems": [f"{name} 접근 실패 ({describe_error(e)})"]}, status_code=status)
-        store.s = settings = settings.model_copy(update=ids)
+        name = "채용 지원 관리 DB"
+        try:
+            job_id = await store.resolve_data_source_id(body.job_db)
+        except NotionError as e:
+            return JSONResponse({"problems": [f"{name}: {e}"]}, status_code=400)
+        except Exception as e:
+            # 4xx는 입력 문제, 시간 초과·5xx는 노션 쪽 문제
+            status = 400 if isinstance(e, HTTPResponseError) and e.status < 500 else 502
+            return JSONResponse({"problems": [f"{name} 접근 실패 ({describe_error(e)})"]}, status_code=status)
+        store.s = settings = settings.model_copy(update={"job_data_source_id": job_id})
         problems = await store.check_schema()
         if problems:
             return JSONResponse({"problems": problems}, status_code=400)
@@ -200,7 +195,7 @@ async def connect_notion(body: NotionConnectIn, request: Request):
         if not swapped:
             await store.aclose()
     _close_later(s.service, old)
-    return {"notion_ready": True, **ids}
+    return {"notion_ready": True, "job_data_source_id": job_id, "company_data_source_id": store.company_source_id}
 
 
 @api.post("/notion/disconnect")

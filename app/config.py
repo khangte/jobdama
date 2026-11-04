@@ -8,8 +8,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", env_ignore_empty=True)
 
     notion_token: str = ""
-    job_data_source_id: str = ""
-    company_data_source_id: str = ""
+    job_data_source_id: str = ""  # 관심 기업 리스트 DB는 이 DB의 기업명 relation에서 찾는다
 
     # 채용 지원 관리 DB 속성 이름
     prop_title: str = "공고명"

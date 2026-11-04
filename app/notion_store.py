@@ -136,36 +136,52 @@ class NotionStore:
         self.s = settings
         self.client = client or AsyncClient(auth=settings.notion_token, timeout_ms=30_000)
         self._company_locks: dict[str, asyncio.Lock] = {}
+        self.company_source_id = ""  # check_schema가 채용 DB의 relation에서 채운다
 
     # ------------------------------------------------------------ 점검
     async def check_schema(self) -> list[str]:
-        """시작 시 DB 속성 이름·형식 점검. 문제 목록을 돌려준다(없으면 빈 목록)."""
+        """DB 속성 이름·형식 점검. 문제 목록을 돌려준다(없으면 빈 목록).
+        관심 기업 리스트 DB는 채용 DB의 기업명 relation이 가리키는 곳으로 정한다(company_source_id)."""
         s = self.s
         if not s.notion_token:
             return ["NOTION_TOKEN이 설정되지 않음 (.env 확인)"]
-        if not (s.job_data_source_id and s.company_data_source_id):
-            return ["JOB_DATA_SOURCE_ID / COMPANY_DATA_SOURCE_ID가 설정되지 않음 (.env 확인)"]
-        problems: list[str] = []
+        if not s.job_data_source_id:
+            return ["JOB_DATA_SOURCE_ID가 설정되지 않음 (.env 확인)"]
+        # .env에 DB 링크나 database ID를 적어도 쓸 수 있게 data source ID로 바꿔 둔다
+        try:
+            s.job_data_source_id = await self.resolve_data_source_id(s.job_data_source_id)
+        except NotionError as e:
+            return [f"채용 지원 관리 DB: {e}"]
+        except Exception as e:
+            return [f"채용 지원 관리 DB 접근 실패 ({describe_error(e)})"]
         expected_jobs = {
             s.prop_title: "title", s.prop_company: "relation", s.prop_deadline: "date",
             s.prop_career: "select", s.prop_url: "url", s.prop_stage: "status",
         }
         expected_company = {s.company_prop_title: "title", s.company_prop_status: "select"}
-        for ds_id, expected, name in (
-            (s.job_data_source_id, expected_jobs, "채용 지원 관리 DB"),
-            (s.company_data_source_id, expected_company, "관심 기업 리스트 DB"),
-        ):
-            try:
-                ds = await self.client.data_sources.retrieve(data_source_id=ds_id)
-            except Exception as e:
-                problems.append(f"{name} 접근 실패 ({describe_error(e)})")
-                continue
-            props = ds.get("properties", {})
-            for prop, typ in expected.items():
-                actual = props.get(prop, {}).get("type")
-                if actual != typ:
-                    problems.append(f"{name}: '{prop}' 속성이 없거나 형식이 다름 (기대 {typ}, 실제 {actual})")
-        return problems
+        props, problems = await self._check_source(s.job_data_source_id, expected_jobs, "채용 지원 관리 DB")
+        if props is None:
+            return problems
+        company_id = (props.get(s.prop_company, {}).get("relation") or {}).get("data_source_id", "")
+        if not company_id:
+            if not problems:  # 형식이 relation이 아니면 위에서 이미 알렸다
+                problems.append(f"채용 지원 관리 DB: '{s.prop_company}' relation이 가리키는 관심 기업 리스트 DB를 찾지 못함")
+            return problems
+        # 점검 중에도 저장 작업이 이 값을 쓰므로 비우지 않고 찾았을 때만 바꾼다
+        self.company_source_id = company_id
+        return problems + (await self._check_source(company_id, expected_company, "관심 기업 리스트 DB"))[1]
+
+    async def _check_source(self, ds_id: str, expected: dict[str, str], name: str) -> tuple[dict | None, list[str]]:
+        try:
+            ds = await self.client.data_sources.retrieve(data_source_id=ds_id)
+        except Exception as e:
+            return None, [f"{name} 접근 실패 ({describe_error(e)})"]
+        props = ds.get("properties", {})
+        problems = [
+            f"{name}: '{prop}' 속성이 없거나 형식이 다름 (기대 {typ}, 실제 {props.get(prop, {}).get('type')})"
+            for prop, typ in expected.items() if props.get(prop, {}).get("type") != typ
+        ]
+        return props, problems
 
     async def resolve_data_source_id(self, link: str) -> str:
         """링크가 data source면 그 ID, database면 그 안의 유일한 data source ID를 돌려준다."""
@@ -230,7 +246,7 @@ class NotionStore:
             if found:
                 return found
             page = await self.client.pages.create(
-                parent={"type": "data_source_id", "data_source_id": self.s.company_data_source_id},
+                parent={"type": "data_source_id", "data_source_id": self.company_source_id},
                 properties={
                     self.s.company_prop_title: {"title": [_rt(name)]},
                     self.s.company_prop_status: {"select": {"name": self.s.company_status_default}},
@@ -243,7 +259,7 @@ class NotionStore:
         # shortcut: 저장할 때마다 기업 DB 전체를 읽는다. 기업이 수천 개로 늘면 정규화 키 속성을 두고 equals로 검색한다.
         pages = async_iterate_paginated_api(
             self.client.data_sources.query,
-            data_source_id=self.s.company_data_source_id,
+            data_source_id=self.company_source_id,
             sorts=[{"timestamp": "created_time", "direction": "ascending"}],
             page_size=100,
         )

@@ -41,16 +41,16 @@ def test_api_routes_are_versioned():
 # ------------------------------------------------------------ 노션 설정 입력
 
 JOB_ID = "1" * 32
-COMPANY_DB_ID = "2" * 32
 COMPANY_DS_ID = "3" * 32
-JOB_PROPS = {"공고명": {"type": "title"}, "기업명": {"type": "relation"}, "마감일": {"type": "date"},
-             "경력": {"type": "select"}, "URL": {"type": "url"}, "지원 단계": {"type": "status"}}
+ORPHAN_JOB_ID = "c" * 32  # 기업명 relation이 공유 안 된 DB를 가리키는 채용 DB
+JOB_PROPS = {"공고명": {"type": "title"}, "기업명": {"type": "relation", "relation": {"data_source_id": COMPANY_DS_ID}},
+             "마감일": {"type": "date"}, "경력": {"type": "select"}, "URL": {"type": "url"}, "지원 단계": {"type": "status"}}
 COMPANY_PROPS = {"기업명": {"type": "title"}, "상태": {"type": "select"}}
 
 
 MULTI_DB_ID = "5" * 32
 ENV_TEXT = "NOTION_TOKEN=from-env\nUSE_PLAYWRIGHT=true\n"
-VALID = {"notion_token": "ntn_abc", "job_db": JOB_ID, "company_db": COMPANY_DB_ID}
+VALID = {"notion_token": "ntn_abc", "job_db": JOB_ID}
 
 
 def notion_handler(req: httpx.Request):
@@ -64,10 +64,11 @@ def notion_handler(req: httpx.Request):
         return httpx.Response(200, json={"object": "database", "data_sources": [{"id": "a" * 32}, {"id": "b" * 32}]})
     if path.endswith(f"data_sources/{JOB_ID}"):
         return httpx.Response(200, json={"object": "data_source", "properties": JOB_PROPS})
+    if path.endswith(f"data_sources/{ORPHAN_JOB_ID}"):
+        props = {**JOB_PROPS, "기업명": {"type": "relation", "relation": {"data_source_id": "8" * 32}}}
+        return httpx.Response(200, json={"object": "data_source", "properties": props})
     if path.endswith(f"data_sources/{COMPANY_DS_ID}"):
         return httpx.Response(200, json={"object": "data_source", "properties": COMPANY_PROPS})
-    if path.endswith(f"databases/{COMPANY_DB_ID}"):
-        return httpx.Response(200, json={"object": "database", "data_sources": [{"id": COMPANY_DS_ID, "name": "x"}]})
     return httpx.Response(404, json={"object": "error", "status": 404, "code": "object_not_found", "message": "nf"})
 
 
@@ -117,7 +118,6 @@ async def test_notion_connect_without_touching_env(setup_client):
         res = await ac.post("/api/v1/notion/connect", json={
             "notion_token": "ntn_abc",
             "job_db": f"https://www.notion.so/ws/Jobs-{JOB_ID}?v={'9' * 32}",
-            "company_db": COMPANY_DB_ID,
         })
         await asyncio.gather(*main_mod._closing)
     assert res.status_code == 200, res.text
@@ -127,7 +127,7 @@ async def test_notion_connect_without_touching_env(setup_client):
     assert st.settings.notion_token == "ntn_abc"
     assert st.service.notion_ready and st.service.store is st.store and old.closed and st.problems == []
     assert not any(h.is_closed for h in created)
-    assert client.post("/api/v1/notion/connect", json={"notion_token": "a", "job_db": "b", "company_db": "c"}).status_code == 409
+    assert client.post("/api/v1/notion/connect", json={"notion_token": "a", "job_db": "b"}).status_code == 409
 
 
 async def test_disconnect_then_reconnect_from_web(setup_client):
@@ -140,7 +140,7 @@ async def test_disconnect_then_reconnect_from_web(setup_client):
         await asyncio.gather(*main_mod._closing)
         assert res.status_code == 200 and res.json() == {"notion_ready": False}
         assert not st.service.notion_ready and st.problems and st.service.store is st.store is not connected
-        assert st.settings.notion_token == st.settings.job_data_source_id == st.settings.company_data_source_id == ""
+        assert st.settings.notion_token == st.settings.job_data_source_id == st.store.company_source_id == ""
         assert created[0].is_closed  # 연결했던 store는 작업이 끝난 뒤 닫힌다
         # 해제한 상태에서는 다시 주입할 수 있고, 다시 해제해도 그대로 200
         assert (await ac.post("/api/v1/notion/connect", json=VALID)).status_code == 200
@@ -161,7 +161,7 @@ def test_disconnect_rejects_foreign_origin(setup_client):
 
 def test_notion_connect_rejects_bad_link_without_saving(setup_client):
     client, env, _, created = setup_client
-    res = client.post("/api/v1/notion/connect", json={"notion_token": "ntn_abc", "job_db": "4" * 32, "company_db": COMPANY_DB_ID})
+    res = client.post("/api/v1/notion/connect", json={"notion_token": "ntn_abc", "job_db": "4" * 32})
     problem = res.json()["problems"][0]
     assert res.status_code == 400 and "채용 지원 관리 DB" in problem and "HTTP 404 object_not_found" in problem
     assert env.read_text() == ENV_TEXT
@@ -169,13 +169,14 @@ def test_notion_connect_rejects_bad_link_without_saving(setup_client):
     assert created and all(h.is_closed for h in created)
 
 
-@pytest.mark.parametrize("company_db, expected", [
+@pytest.mark.parametrize("job_db, expected", [
     ("https://www.notion.so/no-id", "ID를 찾지 못함"),
     (MULTI_DB_ID, "여러 개"),
+    (ORPHAN_JOB_ID, "관심 기업 리스트 DB 접근 실패 (HTTP 404"),
 ])
-def test_notion_connect_rejects_unusable_company_db(setup_client, company_db, expected):
+def test_notion_connect_rejects_unusable_job_db(setup_client, job_db, expected):
     client, env, _, created = setup_client
-    res = client.post("/api/v1/notion/connect", json={"notion_token": "ntn_abc", "job_db": JOB_ID, "company_db": company_db})
+    res = client.post("/api/v1/notion/connect", json={"notion_token": "ntn_abc", "job_db": job_db})
     assert res.status_code == 400 and expected in res.json()["problems"][0]
     assert env.read_text() == ENV_TEXT
     assert all(h.is_closed for h in created)
@@ -184,7 +185,7 @@ def test_notion_connect_rejects_unusable_company_db(setup_client, company_db, ex
 def test_notion_connect_rejects_foreign_origin(setup_client):
     client, env, _, created = setup_client
     res = client.post("/api/v1/notion/connect", headers={"Origin": "https://evil.example.com"},
-                      json={"notion_token": "ntn_abc", "job_db": JOB_ID, "company_db": COMPANY_DB_ID})
+                      json={"notion_token": "ntn_abc", "job_db": JOB_ID})
     assert res.status_code == 403 and not created
     assert env.read_text() == ENV_TEXT
 
@@ -192,7 +193,7 @@ def test_notion_connect_rejects_foreign_origin(setup_client):
 def test_notion_connect_rejects_newline_in_token(setup_client):
     client, _, _, _ = setup_client
     assert client.post("/api/v1/notion/connect", json={
-        "notion_token": "a\nJOB_DATA_SOURCE_ID=x", "job_db": JOB_ID, "company_db": COMPANY_DB_ID}).status_code == 422
+        "notion_token": "a\nJOB_DATA_SOURCE_ID=x", "job_db": JOB_ID}).status_code == 422
 
 
 @pytest.mark.parametrize("job_db, status, text", [
@@ -201,7 +202,7 @@ def test_notion_connect_rejects_newline_in_token(setup_client):
 ])
 def test_notion_connect_reports_http_status(setup_client, job_db, status, text):
     client, _, _, _ = setup_client
-    res = client.post("/api/v1/notion/connect", json={"notion_token": "ntn_abc", "job_db": job_db, "company_db": COMPANY_DB_ID})
+    res = client.post("/api/v1/notion/connect", json={"notion_token": "ntn_abc", "job_db": job_db})
     assert res.status_code == status and text in res.json()["problems"][0]
 
 

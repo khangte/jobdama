@@ -52,8 +52,9 @@ docker compose exec jobdama python -m app.snapshot "공고 링크"
 2. 발급된 토큰(`ntn_...`)을 복사한다.
 3. 복사한 토큰을 `.env`에 `NOTION_TOKEN=` 값으로 붙여넣는다.
 4. 노션에서 연결할 DB가 포함된 페이지를 열고, 오른쪽 위 `···` → 더보기 → 연결 → 연결 추가하기에서 방금 만든 connection을 추가한다.
-5. 연결된 페이지의 저장 대상 DB의 링크를 복사한다.
-6. 복사한 링크를 `.env`에 `JOB_DATA_SOURCE_ID=`, `COMPANY_DATA_SOURCE_ID=` 값으로 붙여넣는다.
+   권한은 하위로 이어지므로 두 DB가 들어 있는 페이지 하나에만 추가하면 된다.
+5. 채용 지원 관리 DB의 링크를 복사한다. 관심 기업 리스트 DB는 `기업명` relation이 가리키는 DB로 자동으로 찾는다.
+6. 복사한 링크를 `.env`에 `JOB_DATA_SOURCE_ID=` 값으로 붙여넣는다.
 
 ## 2. 설치 (WSL, 한 번만)
 
@@ -70,7 +71,7 @@ cp .env.example .env
 nano .env    # NOTION_TOKEN= 뒤에 토큰 붙여넣기
 ```
 
-`.env`에 data source ID 두 개(`JOB_DATA_SOURCE_ID`, `COMPANY_DATA_SOURCE_ID`)도 적는다.
+`.env`에 채용 지원 관리 DB의 링크 또는 ID(`JOB_DATA_SOURCE_ID`)도 적는다.
 Playwright 설치를 건너뛰려면 `.env`에서 `USE_PLAYWRIGHT=false`로 둔다. 이 경우 httpx만 쓴다.
 
 ## 3. 실행
@@ -139,8 +140,7 @@ Windows 브라우저에서 `http://localhost:8000`을 연다. 종료는 터미�
 | 키                     | 기본값                                       | 설명                                                       |
 | ---------------------- | -------------------------------------------- | ---------------------------------------------------------- |
 | NOTION_TOKEN           | (없음)                                       | integration 토큰                                           |
-| JOB_DATA_SOURCE_ID     | (없음)                                       | 채용 지원 관리 DB                                          |
-| COMPANY_DATA_SOURCE_ID | (없음)                                       | 관심 기업 리스트 DB                                        |
+| JOB_DATA_SOURCE_ID     | (없음)                                       | 채용 지원 관리 DB (관심 기업 리스트는 기업명 relation 대상) |
 | USE_PLAYWRIGHT         | true                                         | Playwright 재시도 사용 여부                                |
 | PROP_TITLE 등          | 공고명, 기업명, 마감일, 경력, URL, 지원 단계 | 노션 속성 이름이 바뀌면 여기서 맞춘다 (app/config.py 참고) |
 

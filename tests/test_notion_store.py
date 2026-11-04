@@ -12,18 +12,22 @@ from app.parsers.sites import saramin
 from app.collection.urls import normalize
 from tests.helpers import load, parse_saramin
 
-JOB_DS = "job-ds"
+JOB_DS = "1" * 32  # check_schema가 링크처럼 ID를 해석하므로 실제 형식
+JOB_DB = "2" * 32
 COMPANY_DS = "company-ds"
+RELATION = {"type": "relation", "relation": {"data_source_id": COMPANY_DS, "type": "dual_property"}}
 
 
 def settings() -> Settings:
-    return Settings(notion_token="t", job_data_source_id=JOB_DS, company_data_source_id=COMPANY_DS, _env_file=None)
+    return Settings(notion_token="t", job_data_source_id=JOB_DS, _env_file=None)
 
 
 def make_store(handler):
     http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     client = AsyncClient(auth="t", client=http)
-    return NotionStore(settings(), client)
+    store = NotionStore(settings(), client)
+    store.company_source_id = COMPANY_DS  # 원래는 check_schema가 relation에서 채운다
+    return store
 
 
 def company_page(pid: str, title: str) -> dict:
@@ -129,13 +133,69 @@ async def test_schema_check_reports_missing_property():
     def handler(req: httpx.Request):
         if JOB_DS in req.url.path:
             return httpx.Response(200, json={"object": "data_source", "properties": {
-                "공고명": {"type": "title"}, "기업명": {"type": "relation"}, "마감일": {"type": "date"},
+                "공고명": {"type": "title"}, "기업명": RELATION, "마감일": {"type": "date"},
                 "URL": {"type": "url"}, "지원 단계": {"type": "status"}}})
+        assert COMPANY_DS in req.url.path
         return httpx.Response(200, json={"object": "data_source", "properties": {
             "기업명": {"type": "title"}, "상태": {"type": "select"}}})
 
-    problems = await make_store(handler).check_schema()
+    store = make_store(handler)
+    store.company_source_id = ""
+    problems = await store.check_schema()
     assert len(problems) == 1 and "'경력'" in problems[0]
+    assert store.company_source_id == COMPANY_DS  # 기업 DB는 기업명 relation이 가리키는 곳
+
+
+@pytest.mark.parametrize("company_prop, expected", [
+    ({"type": "relation", "relation": {}}, "relation이 가리키는 관심 기업 리스트 DB를 찾지 못함"),
+    ({"type": "rich_text"}, "'기업명' 속성이 없거나 형식이 다름"),
+])
+async def test_schema_check_needs_company_relation(company_prop, expected):
+    def handler(req: httpx.Request):
+        assert JOB_DS in req.url.path  # 기업 DB를 모르면 조회하지 않는다
+        return httpx.Response(200, json={"object": "data_source", "properties": {
+            "공고명": {"type": "title"}, "기업명": company_prop, "마감일": {"type": "date"},
+            "경력": {"type": "select"}, "URL": {"type": "url"}, "지원 단계": {"type": "status"}}})
+
+    store = make_store(handler)
+    store.company_source_id = ""
+    problems = await store.check_schema()
+    assert len(problems) == 1 and expected in problems[0] and store.company_source_id == ""
+
+
+async def test_schema_check_accepts_database_link():
+    # .env에 DB 링크를 붙여넣어도 시작할 때 data source ID로 바꿔 쓴다
+    def handler(req: httpx.Request):
+        path = req.url.path
+        if path.endswith(f"databases/{JOB_DB}"):
+            return httpx.Response(200, json={"object": "database", "data_sources": [{"id": JOB_DS}]})
+        if path.endswith(f"data_sources/{JOB_DS}"):
+            return httpx.Response(200, json={"object": "data_source", "properties": {
+                "공고명": {"type": "title"}, "기업명": RELATION, "마감일": {"type": "date"},
+                "경력": {"type": "select"}, "URL": {"type": "url"}, "지원 단계": {"type": "status"}}})
+        if path.endswith(f"data_sources/{COMPANY_DS}"):
+            return httpx.Response(200, json={"object": "data_source", "properties": {
+                "기업명": {"type": "title"}, "상태": {"type": "select"}}})
+        return httpx.Response(404, json={"object": "error", "status": 404, "code": "object_not_found", "message": "nf"})
+
+    store = make_store(handler)
+    store.s.job_data_source_id = f"https://www.notion.so/ws/Jobs-{JOB_DB}?v={'9' * 32}"
+    assert await store.check_schema() == []
+    assert store.s.job_data_source_id == JOB_DS
+
+
+@pytest.mark.parametrize("value, expected", [
+    ("not-a-link", "채용 지원 관리 DB: 노션 링크에서 ID를 찾지 못함"),
+    ("3" * 32, "채용 지원 관리 DB 접근 실패 (HTTP 404 object_not_found"),
+])
+async def test_schema_check_reports_unusable_job_link(value, expected):
+    def handler(req: httpx.Request):
+        return httpx.Response(404, json={"object": "error", "status": 404, "code": "object_not_found", "message": "nf"})
+
+    store = make_store(handler)
+    store.s.job_data_source_id = value
+    problems = await store.check_schema()
+    assert len(problems) == 1 and problems[0].startswith(expected)
 
 
 async def test_schema_check_without_token():
