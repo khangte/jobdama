@@ -82,7 +82,7 @@ async def resolve_public(host: str) -> str | None:
         infos = await loop.getaddrinfo(host, None, type=socket.SOCK_STREAM)
     except socket.gaierror:
         return None
-    addrs = sorted({info[4][0] for info in infos})
+    addrs = list(dict.fromkeys(info[4][0] for info in infos))  # OS가 정한 순서 유지(IPv6 경로 없는 PC는 IPv4가 먼저)
     if addrs and all(ipaddress.ip_address(a.split("%")[0]).is_global for a in addrs):
         return addrs[0]
     return None
@@ -141,7 +141,8 @@ class HttpFetcher:
         """
         target, headers, ext = httpx.URL(url), HEADERS, {}
         if ip and ip != target.host:
-            headers = {**HEADERS, "Host": target.netloc.decode("ascii")}
+            # Connection: close — IP가 연결 풀 키라서, 다른 호스트 요청이 이 연결(원래 호스트로 연 TLS)을 재사용하지 않게
+            headers = {**HEADERS, "Host": target.netloc.decode("ascii"), "Connection": "close"}
             ext = {"sni_hostname": target.host}
             target = target.copy_with(host=ip)
         for attempt in (1, 2):

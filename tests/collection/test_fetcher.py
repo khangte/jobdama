@@ -1,5 +1,8 @@
 """HTTP·브라우저 수집과 차단 화면·내부망 검사."""
 
+import asyncio
+import socket
+
 import httpx
 import playwright.async_api
 import pytest
@@ -7,7 +10,7 @@ import pytest
 import app.collection.fetcher as fetcher_mod
 from app.collection.fetcher import (
     BlockedTarget, BrowserFetcher, FetchError, HttpFetcher, check_target, decode_html, is_public_host,
-    looks_like_challenge,
+    looks_like_challenge, resolve_public,
 )
 from app.collection.urls import GENERIC, INCRUIT, WANTED
 from tests.helpers import FIX, rd
@@ -197,3 +200,15 @@ async def test_http_fetcher_pins_validated_ip_against_dns_rebinding(monkeypatch)
     assert req.url.host == "93.184.216.34"  # 검증한 IP로 직접 연결
     assert req.headers["host"] == "careers.example.com:8443"
     assert req.extensions["sni_hostname"] == "careers.example.com"
+    assert req.headers["connection"] == "close"  # IP 키 연결이 다른 호스트 요청에 재사용되지 않게
+
+
+async def test_resolve_public_keeps_getaddrinfo_order(monkeypatch):
+    def info(addr):
+        return (socket.AF_INET6 if ":" in addr else socket.AF_INET, socket.SOCK_STREAM, 6, "", (addr, 0))
+
+    async def fake_getaddrinfo(host, port, **kw):  # OS가 정한 순서: IPv4 먼저(IPv6 경로 없는 PC)
+        return [info("93.184.216.34"), info("2600:9000::1"), info("93.184.216.34")]
+
+    monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", fake_getaddrinfo)
+    assert await resolve_public("dual.example.com") == "93.184.216.34"
