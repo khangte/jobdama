@@ -1,0 +1,89 @@
+{
+  "fileId": "08b470c5-dda4-812a-8008-e48575502aa7",
+  "fileName": "jobdama",
+  "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a",
+  "pageName": "Page 1",
+  "boards": [
+    {
+      "id": "55e5b2db-234a-807e-8008-e48b08524574",
+      "name": "05 · 데스크톱 / Notion 미연결",
+      "width": 1440,
+      "height": 1100,
+      "textCount": 36,
+      "imageCount": 0,
+      "interactionCount": 2
+    },
+    {
+      "id": "55e5b2db-234a-807e-8008-e48b40136ff7",
+      "name": "06 · 데스크톱 / Notion 연결 입력",
+      "width": 1440,
+      "height": 1100,
+      "textCount": 56,
+      "imageCount": 0,
+      "interactionCount": 3
+    },
+    {
+      "id": "55e5b2db-234a-807e-8008-e48b5709e7cd",
+      "name": "07 · 데스크톱 / Notion 연결 정보",
+      "width": 1440,
+      "height": 1100,
+      "textCount": 39,
+      "imageCount": 0,
+      "interactionCount": 1
+    },
+    {
+      "id": "55e5b2db-234a-807e-8008-e48b6c80376a",
+      "name": "08 · 데스크톱 / Notion 연결 해제",
+      "width": 1440,
+      "height": 1100,
+      "textCount": 40,
+      "imageCount": 0,
+      "interactionCount": 2
+    },
+    {
+      "id": "55e5b2db-234a-807e-8008-e48b7acac399",
+      "name": "09 · 데스크톱 / Notion 연결 오류",
+      "width": 1440,
+      "height": 1100,
+      "textCount": 57,
+      "imageCount": 0,
+      "interactionCount": 3
+    },
+    {
+      "id": "55e5b2db-234a-807e-8008-e48b9386f5a1",
+      "name": "10 · 모바일 / Notion 연결 입력",
+      "width": 390,
+      "height": 960,
+      "textCount": 44,
+      "imageCount": 0,
+      "interactionCount": 3
+    },
+    {
+      "id": "55e5b2db-234a-807e-8008-e48baec92fc1",
+      "name": "11 · 모바일 / Notion 연결 정보",
+      "width": 390,
+      "height": 960,
+      "textCount": 27,
+      "imageCount": 0,
+      "interactionCount": 1
+    },
+    {
+      "id": "55e5b2db-234a-807e-8008-e48bbc0a88ef",
+      "name": "12 · 모바일 / Notion 연결 해제",
+      "width": 390,
+      "height": 960,
+      "textCount": 28,
+      "imageCount": 0,
+      "interactionCount": 2
+    },
+    {
+      "id": "55e5b2db-234a-807e-8008-e48c6e446ac8",
+      "name": "13 · 모바일 / Notion 미연결",
+      "width": 390,
+      "height": 960,
+      "textCount": 24,
+      "imageCount": 0,
+      "interactionCount": 2
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>잡담아 · Notion 연결 시안</title>
+<style>
+:root{--bg:#f6f8fc;--panel:#fff;--text:#182334;--muted:#68788e;--border:#e2e8f1;--blue:#2f6fed;--green:#24784e;--red:#b63c34}
+*{box-sizing:border-box}body{margin:0;color:var(--text);background:var(--bg);font:14px/1.65 "Noto Sans KR","Noto Sans CJK KR","Pretendard",system-ui,sans-serif}button,input{font:inherit}button{cursor:pointer}button:disabled{cursor:wait;opacity:.65}a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #95b6fa;outline-offset:3px}h1,h2,h3,p{margin:0}button{border:0}button,input{border-radius:9px}.topbar{height:88px;background:white;border-bottom:1px solid var(--border);padding:0 max(32px,calc((100vw - 1160px)/2));display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:center;gap:12px}.brand-mark{height:40px;width:40px;display:grid;place-items:center;border-radius:12px;background:var(--blue);color:white;font-size:18px;font-weight:700;letter-spacing:-2px}.brand-name{font-size:23px;font-weight:700;letter-spacing:-1px;line-height:1.2}.brand-name small{display:block;font-size:9px;color:var(--muted);letter-spacing:2px;margin-top:4px}.nav{display:flex;align-items:center;gap:32px}.nav>span{font-size:13px;font-weight:600;color:var(--blue)}.status-wrap{position:relative}.status-button{display:flex;align-items:center;gap:9px;min-height:40px;padding:8px 13px;background:#f4f6fa;color:#647287;border:1px solid var(--border);font-size:12px}.dot{width:6px;height:6px;border-radius:50%;background:currentColor}.status-button.connected{color:var(--green);background:#f3faf6;border-color:#dcece2}.chevron{margin-left:5px;font-size:10px}.workspace{max-width:1224px;margin:auto;padding:48px 32px 96px}.eyebrow{font-size:10px;letter-spacing:2px;font-weight:700;color:var(--blue);margin-bottom:12px}h1{font-size:34px;letter-spacing:-1.5px;line-height:1.5}.subtitle{color:var(--muted);margin-top:12px}.columns{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:28px;margin-top:32px}.connection-banner{display:flex;align-items:center;gap:18px;padding:22px 24px;background:#edf3ff;border-radius:14px;margin-bottom:22px}.connection-banner h2{font-size:15px;letter-spacing:-.4px}.connection-banner p{font-size:12px;color:#5e7394;margin-top:3px}.connection-banner .primary{margin-left:auto;flex:none}.primary{background:var(--blue);color:white;min-height:44px;padding:11px 18px;font-size:13px;font-weight:600}.primary:hover{background:#245bcc}.secondary{background:white;color:#46566e;min-height:44px;padding:10px 18px;border:1px solid var(--border);font-size:13px}.secondary:hover{background:#f6f8fc}.panel{padding:26px;background:white;border:1px solid var(--border);border-radius:16px}.composer-heading{display:flex;justify-content:space-between;align-items:center;font-weight:600;margin-bottom:16px}.key{font-size:10px;font-weight:400;color:var(--muted);padding:2px 6px;border:1px solid var(--border);border-radius:4px}.url-input{width:100%;height:60px;background:#fbfdff;border:1px solid var(--blue);padding:16px;color:var(--text);box-shadow:0 0 0 4px #edf3ff}.url-input:disabled{background:#f8fafc;box-shadow:none;border-color:var(--border)}.url-input::placeholder{color:#8290a5}.hint{font-size:12px;color:var(--muted);margin-top:14px}.results-heading{display:flex;gap:9px;align-items:center;margin:28px 0 14px}.results-heading h2{font-size:17px}.count{background:#eaf1ff;color:var(--blue);border-radius:5px;padding:0 7px;font-size:12px}.empty{padding:58px 24px 64px;text-align:center}.empty h3{font-size:18px;letter-spacing:-.5px}.empty p{color:var(--muted);font-size:13px;margin-top:10px;line-height:1.9}.flow{display:inline-block;padding:7px 12px;border-radius:6px;background:#f6f8fc;color:var(--muted);font-size:11px;margin-top:24px}.sidebar h2{font-size:14px;margin-bottom:20px}.destination{display:flex;align-items:center;gap:12px;padding-bottom:20px;border-bottom:1px solid var(--border)}.notion-logo{font:bold 25px Georgia,serif;border:1px solid var(--text);border-radius:4px;height:34px;width:32px;display:grid;place-items:center}.destination strong{font-size:12px}.destination p{font-size:11px;color:var(--muted);margin-top:3px}.steps{margin:20px 0 0;padding-left:18px;color:var(--muted);font-size:12px;line-height:2.6}.aside-note{font-size:12px;color:var(--muted);line-height:1.9;padding:22px 4px}.popover{position:absolute;z-index:3;right:0;top:51px;width:310px;background:white;border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 36px #18233414;padding:22px}.popover h2{font-size:14px}.connected-copy{color:var(--green);font-size:12px;margin-top:5px}.db-list{margin:20px 0}.db-row{font-size:13px;padding:10px 0;border-top:1px solid #edf0f5}.db-row small{display:block;font-size:11px;color:var(--muted)}.disconnect-link{background:transparent;color:var(--red);text-align:left;padding:10px 0 0;width:100%;border-top:1px solid var(--border);border-radius:0;font-size:12px}.popover-note{font-size:11px;color:var(--muted);margin-top:10px}dialog{border:0;border-radius:20px;background:white;color:var(--text);padding:0;width:540px;max-width:calc(100vw - 32px);max-height:calc(100dvh - 40px);box-shadow:0 24px 100px #18233429}dialog::backdrop{background:#1823345c;backdrop-filter:blur(2px)}.dialog-body{padding:32px}.dialog-header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.dialog-header h2{font-size:24px;letter-spacing:-.8px;line-height:1.4}.dialog-description{font-size:13px;color:var(--muted);margin-top:9px}.close-button{background:#f4f6f9;color:#607087;min-height:32px;padding:5px 10px;font-size:12px}.connection-form{margin-top:26px}.field{margin-top:18px}.field:first-child{margin-top:0}.field label{display:block;font-weight:600;font-size:13px;margin-bottom:8px}.field input{width:100%;min-width:0;min-height:46px;border:1px solid #dce3ed;padding:11px 13px;background:white;color:var(--text);font-size:13px}.field input::placeholder{color:#8a96a7}.token-wrap{display:flex;gap:8px}.token-toggle{font-size:12px;min-width:54px;background:#f4f6fa;color:var(--muted)}.field-hint{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted);margin-top:6px}.permission-note{color:var(--muted);font-size:12px;margin-top:18px;line-height:1.8}.advanced{margin-top:18px;font-size:11px;color:var(--muted)}.advanced summary{cursor:pointer}.advanced dl{margin:8px 0}.advanced dt{font-weight:600;margin-top:6px}.advanced dd{margin-left:0;overflow-wrap:anywhere}.error{color:var(--red);font-size:12px;line-height:1.8;margin-top:12px}.dialog-footer{display:flex;align-items:center;gap:12px;justify-content:flex-end;border-top:1px solid #edf0f5;background:#fafbfd;padding:20px 32px;border-radius:0 0 20px 20px}.session-note{font-size:11px;color:var(--muted);margin-right:auto;max-width:230px;line-height:1.7}.confirm-dialog{width:440px}.confirm-dialog h2{font-size:21px}.confirm-copy{color:var(--muted);font-size:13px;line-height:1.9;margin-top:16px}.retention-note{font-size:12px;background:#f4f7fb;padding:12px 14px;border-radius:8px;margin-top:20px;color:#52637b}.danger{background:var(--red);color:white;padding:11px 18px;min-height:44px;font-size:13px;font-weight:600}.preview-tools{position:fixed;left:20px;bottom:18px;z-index:10;display:flex;align-items:center;gap:4px;background:#182334;color:#fff;padding:6px 8px;border-radius:12px;box-shadow:0 4px 20px #18233420;font-size:10px}.preview-tools span{padding:0 8px;color:#bfcce0}.preview-tools button{color:#e5ecf7;background:transparent;padding:7px 9px;font-size:11px}.preview-tools button:hover{background:#ffffff16}.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:12px 20px;border-radius:10px;font-size:12px;z-index:8}.footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--border);font-size:10px;color:var(--muted)}[hidden]{display:none!important}
+@media(max-width:800px){.columns{grid-template-columns:minmax(0,1fr)}.sidebar{display:none}.workspace{max-width:720px}.topbar{height:76px}.nav{gap:12px}.nav>span{display:none}.connection-banner{flex-wrap:wrap;gap:14px}.connection-banner .primary{margin-left:0}.dialog-body{padding:26px}.dialog-footer{padding:20px 26px}}@media(max-width:480px){.topbar{padding:0 20px}.brand-mark{width:34px;height:34px}.brand-name{font-size:20px}.workspace{padding:30px 20px 112px}h1{font-size:27px}.subtitle{font-size:12px}.eyebrow{font-size:9px;letter-spacing:1.3px}.columns{margin-top:24px}.connection-banner{padding:20px}.connection-banner .primary{width:100%;margin-top:2px}.panel{padding:20px}.connection-banner h2{font-size:14px}.empty{padding:44px 20px}.dialog-body{padding:24px}.dialog-header h2{font-size:22px}.dialog-footer{padding:18px 24px;flex-wrap:wrap;gap:10px}.session-note{max-width:none;width:100%;font-size:10px}.dialog-footer button{flex:1}.field-hint{flex-wrap:wrap}.preview-tools{left:10px;right:10px;bottom:10px;justify-content:center;flex-wrap:wrap}.preview-tools span{width:100%;text-align:center}.popover{width:min(290px,calc(100vw - 40px))}.confirm-dialog .dialog-footer{flex-wrap:nowrap}.confirm-dialog .dialog-footer button{white-space:nowrap}.popover-note{font-size:11px}}
+</style>
+<header class="topbar">
+  <div class="brand"><span class="brand-mark">jd.</span><div class="brand-name">잡담아<small>JOBDAMA</small></div></div>
+  <nav class="nav" aria-label="주 메뉴"><span>공고 담기</span><div class="status-wrap">
+    <button class="status-button" id="status-button" aria-expanded="false" aria-haspopup="dialog"><span class="dot"></span><span id="status-label">Notion 미연결</span><span class="chevron" aria-hidden="true">⌄</span></button>
+    <section class="popover" id="connection-popover" role="dialog" aria-label="Notion 연결 정보" hidden>
+      <h2>Notion 연결</h2><p class="connected-copy">연결이 정상적으로 작동하고 있어요</p>
+      <div class="db-list"><div class="db-row">채용 지원 관리<small>공고가 저장되는 데이터베이스</small></div></div>
+      <button class="disconnect-link" id="disconnect-open">연결 해제</button><p class="popover-note">저장한 공고는 Notion에 그대로 남아요.</p>
+    </section>
+  </div></nav>
+</header>
+<main class="workspace">
+  <p class="eyebrow">COLLECT YOUR NEXT OPPORTUNITY</p><h1>발견한 기회,<br>여기에 담아두세요.</h1>
+  <p class="subtitle">채용공고 링크만 붙여넣으세요. 공고 정보는 Notion에 차곡차곡 정리해 드릴게요.</p>
+  <div class="columns"><div>
+    <section class="connection-banner" id="connection-banner"><div><h2>저장할 Notion을 연결해 주세요</h2><p>한 번 연결하면 공고 링크만 붙여넣으면 돼요.</p></div><button class="primary" id="connect-open">Notion 연결하기</button></section>
+    <section class="panel"><div class="composer-heading"><label for="job-url">채용공고 링크</label><span class="key">Ctrl + V</span></div><input id="job-url" class="url-input" placeholder="관심 있는 채용공고 링크를 붙여넣으세요" disabled><p class="hint" id="composer-hint">Notion을 연결한 뒤 공고를 담을 수 있어요.</p></section>
+    <div class="results-heading"><h2>담은 공고</h2><span class="count">0</span></div><section class="panel empty"><h3>첫 번째 공고를 담아볼까요?</h3><p>마음에 드는 공고 링크만 가져오세요.<br>공고 정보 정리는 잡담아가 도와드릴게요.</p><span class="flow">공고 링크 → 내용 수집 → Notion 저장</span></section>
+  </div><aside class="sidebar"><section class="panel"><h2>공고는 이곳에 담겨요</h2><div class="destination"><span class="notion-logo">N</span><div><strong>채용 지원 관리</strong><p>Notion 데이터베이스</p></div></div><ol class="steps"><li>공고 링크 붙여넣기</li><li>공고 내용 가져오기</li><li>Notion에서 이어서 관리</li></ol></section><p class="aside-note">이미 저장한 공고는 다시 만들지 않고<br>기존 Notion 페이지를 연결해 드려요.</p></aside></div>
+  <footer class="footer">처리 목록은 서버 재시작 시 초기화돼요. Notion에 저장한 공고는 유지돼요.</footer>
+</main>
+<dialog id="connect-dialog" aria-labelledby="connect-title" aria-describedby="connect-description">
+  <form id="connect-form">
+    <div class="dialog-body"><div class="dialog-header"><h2 id="connect-title">Notion 연결</h2><button class="close-button" type="button" data-close="connect-dialog" aria-label="Notion 연결 창 닫기">닫기</button></div><p class="dialog-description" id="connect-description">관심 있는 공고를 모아둘 공간을 연결하세요.</p>
+      <div class="connection-form">
+        <div class="field"><label for="token">Notion 토큰</label><div class="token-wrap"><input id="token" name="notion_token" type="password" placeholder="발급받은 토큰을 붙여넣으세요" required autocomplete="new-password" spellcheck="false"><button class="token-toggle" type="button" id="token-toggle" aria-controls="token" aria-pressed="false">표시</button></div><div class="field-hint"><span>Notion 연결에서 발급받을 수 있어요.</span><a href="https://app.notion.com/developers/connections" target="_blank" rel="noopener noreferrer">토큰 발급하기 ↗</a></div></div>
+        <div class="field"><label for="jobs-db">채용 지원 관리 DB</label><input id="jobs-db" name="job_db" placeholder="데이터베이스 링크 또는 ID" required autocomplete="off" spellcheck="false"></div>
+        <p class="permission-note">Notion에서 데이터베이스의 <strong>연결</strong> 메뉴에<br>토큰을 발급한 연결을 추가해 주세요.</p>
+        <details class="advanced"><summary>환경변수 이름 확인</summary><dl><dt>Notion 토큰</dt><dd>NOTION_TOKEN</dd><dt>채용 지원 관리 DB</dt><dd>JOB_DATA_SOURCE_ID</dd></dl></details>
+        <p class="error" id="connect-error" role="alert" hidden></p>
+      </div>
+    </div><div class="dialog-footer"><p class="session-note">현재 실행 중에만 적용돼요.<br>재시작하면 .env 설정을 사용해요.</p><button class="secondary" type="button" data-close="connect-dialog">취소</button><button class="primary" id="connect-submit" type="submit">연결하기</button></div>
+  </form>
+</dialog>
+<dialog id="disconnect-dialog" class="confirm-dialog" aria-labelledby="disconnect-title" aria-describedby="disconnect-description">
+  <div class="dialog-body"><h2 id="disconnect-title">Notion 연결을 해제할까요?</h2><p class="confirm-copy" id="disconnect-description">연결을 해제하면 새 공고를 담을 수 없어요.<br>다시 연결하려면 토큰과 DB 정보를 입력해 주세요.</p><p class="retention-note">Notion에 저장한 공고와 기업 정보는 유지돼요.</p><p class="permission-note">서버를 재시작하면 .env 설정으로 다시 연결돼요.</p></div>
+  <div class="dialog-footer"><button class="secondary" data-close="disconnect-dialog">연결 유지</button><button class="danger" id="disconnect-confirm">연결 해제</button></div>
+</dialog>
+<div class="toast" id="toast" role="status" hidden></div>
+<nav class="preview-tools" aria-label="시안 상태 전환"><span>시안 미리보기 · 실제 연결 없음</span><button data-preview="disconnected">미연결</button><button data-preview="input">연결 입력</button><button data-preview="connected">연결 정보</button><button data-preview="disconnect">해제 확인</button><button data-preview="error">연결 오류</button></nav>
+<script>
+// 디자인 검토 전용. API 호출과 저장은 하지 않는다.
+const $ = (id) => document.getElementById(id);
+let connected = false;
+let simulateError = false;
+let toastTimer;
+function closePopover(){ $('connection-popover').hidden = true; $('status-button').setAttribute('aria-expanded', 'false'); }
+function setConnected(value){
+  connected = value;
+  $('status-button').classList.toggle('connected', value);
+  $('status-label').textContent = value ? 'Notion 연결됨' : 'Notion 미연결';
+  $('connection-banner').hidden = value;
+  $('job-url').disabled = !value;
+  $('composer-hint').textContent = value ? '붙여넣으면 바로 접수돼요. 직접 입력했다면 Enter.' : 'Notion을 연결한 뒤 공고를 담을 수 있어요.';
+  closePopover();
+}
+function openConnect(){ closePopover(); $('connect-error').hidden = true; $('connect-dialog').showModal(); }
+function toast(text){clearTimeout(toastTimer);$('toast').textContent=text;$('toast').hidden=false;toastTimer=setTimeout(()=>{$('toast').hidden=true;},3000);}
+$('connect-open').addEventListener('click', openConnect);
+$('status-button').addEventListener('click',()=>{
+  if(!connected){openConnect();return;}
+  const open=$('connection-popover').hidden;
+  $('connection-popover').hidden=!open;
+  $('status-button').setAttribute('aria-expanded', String(open));
+});
+document.addEventListener('click',(e)=>{if(!e.target.closest('.status-wrap, .preview-tools'))closePopover();});
+document.addEventListener('keydown',(e)=>{if(e.key==='Escape')closePopover();});
+$('disconnect-open').addEventListener('click',()=>{closePopover();$('disconnect-dialog').showModal();});
+document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>$(button.dataset.close).close()));
+$('token-toggle').addEventListener('click',()=>{const show=$('token').type==='password';$('token').type=show?'text':'password';$('token-toggle').textContent=show?'숨기기':'표시';$('token-toggle').setAttribute('aria-pressed',String(show));});
+$('connect-dialog').addEventListener('close',()=>{$('token').type='password';$('token-toggle').textContent='표시';$('token-toggle').setAttribute('aria-pressed','false');});
+$('connect-form').addEventListener('submit',async(e)=>{
+  e.preventDefault();
+  const fields=[...$('connect-form').querySelectorAll('input')];
+  if(fields.some(field=>!field.value.trim()||/\s/.test(field.value.trim()))){$('connect-error').textContent='토큰과 DB 링크 또는 ID를 공백 없이 입력해 주세요.';$('connect-error').hidden=false;return;}
+  const button=$('connect-submit');button.disabled=true;button.textContent='연결 확인 중…';
+  $('connect-form').setAttribute('aria-busy','true');
+  await new Promise(resolve=>setTimeout(resolve,600));
+  button.disabled=false;button.textContent='연결하기';$('connect-form').removeAttribute('aria-busy');
+  if(simulateError){simulateError=false;$('connect-error').textContent='데이터베이스에 접근할 수 없어요. 토큰과 Notion의 연결 권한을 확인하고 다시 시도해 주세요.';$('connect-error').hidden=false;return;}
+  $('connect-dialog').close();$('connect-form').reset();setConnected(true);toast('Notion이 연결됐어요. 이제 공고를 담아보세요.');
+});
+$('disconnect-confirm').addEventListener('click',()=>{$('disconnect-dialog').close();setConnected(false);$('connect-form').reset();toast('Notion 연결을 해제했어요. 저장한 공고는 유지돼요.');});
+function preview(state){
+  document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());
+  $('toast').hidden=true;simulateError=false;
+  $('connect-form').reset();
+  setConnected(state==='connected'||state==='disconnect');
+  if(state==='input'||state==='error')openConnect();
+  if(state==='connected'){$('connection-popover').hidden=false;$('status-button').setAttribute('aria-expanded','true');}
+  if(state==='disconnect')$('disconnect-dialog').showModal();
+  if(state==='error'){simulateError=true;$('connect-error').textContent='데이터베이스에 접근할 수 없어요. 토큰과 Notion의 연결 권한을 확인해 주세요.';$('connect-error').hidden=false;}
+}
+document.querySelectorAll('[data-preview]').forEach(button=>button.addEventListener('click',()=>preview(button.dataset.preview)));
+preview(new URLSearchParams(location.search).get('state')||'disconnected');
+</script>
+</html>
