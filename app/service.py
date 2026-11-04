@@ -11,14 +11,14 @@ import asyncio
 import logging
 from collections import OrderedDict
 from dataclasses import replace
-from datetime import datetime
 from typing import Protocol
 
 from app.collection.collector import Collector
 from app.collection.fetcher import FetchError
 from app.collection.urls import NormalizedURL, UnsupportedURL, normalize
-from app.models import KST, Job, JobStatus, Posting
+from app.models import Job, JobStatus, Posting
 from app.notion_store import is_uncertain_write_error, page_url
+from app.parsers.common import today_kst
 
 log = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ class JobService:
         except FetchError as e:
             self._finish(job, JobStatus.FETCH_FAILED, str(e))
             return
-        today = datetime.now(KST).date()
+        today = today_kst()
         if posting.deadline and posting.deadline < today and not posting.expired:
             posting = replace(posting, expired=True)
         job.title = posting.title

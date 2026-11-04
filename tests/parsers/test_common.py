@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from app.parsers.common import classify_career, format_title, parse_deadline
+from app.parsers.common import classify_career, format_title, parse_deadline, split_label
 
 
 @pytest.mark.parametrize("raw,expected", [
@@ -73,3 +73,13 @@ def test_format_title(raw, company, expected):
 ])
 def test_deadline_without_year(raw, today, expected):
     assert parse_deadline(raw, today=today) == expected
+
+
+@pytest.mark.parametrize("line,expected", [
+    ("경력: 신입", ("경력", "신입")),
+    ("경력：신입", ("경력", "신입")),  # 전각 콜론
+    ("경력 : 3년 이상", ("경력", "3년 이상")),
+    ("라벨 없는 줄", (None, "")),
+])
+def test_split_label(line, expected):
+    assert split_label(line) == expected

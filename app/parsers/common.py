@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, datetime
 
 from app.models import KST
 
@@ -36,8 +36,7 @@ def normalize_company(name: str | None) -> str:
     """비교용 기업명. (주), 주식회사, 공백, 기호를 지운다."""
     if not name:
         return ""
-    s = _CORP_RE.sub("", name)
-    return re.sub(r"[^0-9A-Za-z가-힣]", "", s).lower()
+    return _core(_CORP_RE.sub("", name))
 
 
 def format_title(raw_title: str, company: str | None) -> str:
@@ -145,8 +144,6 @@ def parse_iso_deadline(value: str | None) -> date | None:
     """ISO 일시. 시간대가 있으면 한국 시간 날짜로 바꾼다."""
     if not value:
         return None
-    from datetime import datetime
-
     s = str(value).strip().replace("Z", "+00:00")
     try:
         dt = datetime.fromisoformat(s)
@@ -218,14 +215,12 @@ def pick_classifiable(*candidates: str | None) -> str | None:
 
 
 
-def today_kst():
-    from datetime import datetime
+def today_kst() -> date:
+    """한국 시간 기준 오늘 날짜."""
     return datetime.now(KST).date()
 
 
 def split_label(line: str) -> tuple[str | None, str]:
     """'라벨: 값' 한 줄을 (라벨, 값)으로. 콜론이 없으면 (None, '')."""
-    if ":" in line:
-        k, v = line.split(":", 1)
-        return clean(k), clean(v)
-    return None, ""
+    m = _LABEL_RE.match(line)
+    return (clean(m.group(1)), clean(m.group(2))) if m else (None, "")

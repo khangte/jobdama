@@ -17,7 +17,7 @@ import re
 from selectolax.lexbor import LexborHTMLParser, LexborNode
 
 from app.models import Posting
-from app.parsers.common import classify_career, clean, format_title, parse_deadline
+from app.parsers.common import classify_career, clean, clean_page_title, format_title, parse_deadline
 from app.parsers.html import dl_pairs, meta_content
 from app.parsers.sections import extract_sections
 
@@ -49,9 +49,7 @@ def parse(html: str, url: str, rec_idx: str) -> Posting:
     desc_parts = [p.strip() for p in desc.split(",")] if desc else []
 
     if not raw_title:
-        og = meta_content(tree, "og:title")
-        og = re.sub(r"\s*-\s*사람인\s*$", "", og)
-        og = re.sub(r"\s*\((?:D-\d+|오늘마감|내일마감|상시채용)\)\s*$", "", og)
+        og = clean_page_title(meta_content(tree, "og:title"))
         if company and og.startswith(f"[{company}]"):
             og = og[len(company) + 2:].strip()
         raw_title = og
