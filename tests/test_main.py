@@ -43,6 +43,7 @@ def test_api_routes_are_versioned():
 JOB_ID = "1" * 32
 COMPANY_DS_ID = "3" * 32
 ORPHAN_JOB_ID = "c" * 32  # 기업명 relation이 공유 안 된 DB를 가리키는 채용 DB
+NO_CAREER_JOB_ID = "d" * 32  # 경력 열이 없는 채용 DB
 JOB_PROPS = {"공고명": {"type": "title"}, "기업명": {"type": "relation", "relation": {"data_source_id": COMPANY_DS_ID}},
              "마감일": {"type": "date"}, "경력": {"type": "select"}, "URL": {"type": "url"}, "지원 단계": {"type": "status"}}
 COMPANY_PROPS = {"기업명": {"type": "title"}, "상태": {"type": "select"}}
@@ -66,6 +67,9 @@ def notion_handler(req: httpx.Request):
         return httpx.Response(200, json={"object": "data_source", "properties": JOB_PROPS})
     if path.endswith(f"data_sources/{ORPHAN_JOB_ID}"):
         props = {**JOB_PROPS, "기업명": {"type": "relation", "relation": {"data_source_id": "8" * 32}}}
+        return httpx.Response(200, json={"object": "data_source", "properties": props})
+    if path.endswith(f"data_sources/{NO_CAREER_JOB_ID}"):
+        props = {k: v for k, v in JOB_PROPS.items() if k != "경력"}
         return httpx.Response(200, json={"object": "data_source", "properties": props})
     if path.endswith(f"data_sources/{COMPANY_DS_ID}"):
         return httpx.Response(200, json={"object": "data_source", "properties": COMPANY_PROPS})
@@ -174,6 +178,17 @@ async def test_notion_page_follows_connection_state(setup_client):
         assert 'data-notion-action="disconnect"' not in page.text
         assert 'disabled' in page.text
         assert VALID["notion_token"] not in page.text
+        await asyncio.gather(*main_mod._closing)
+
+
+async def test_connected_page_lists_blank_columns(setup_client):
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=main_mod.app), base_url="http://localhost") as ac:
+        res = await ac.post("/api/v1/notion/connect", json={**VALID, "job_db": NO_CAREER_JOB_ID})
+        assert res.status_code == 200  # 선택 열이 없어도 연결된다
+        page = await ac.get("/")
+        assert "비워 두는 열 1개" in page.text and "경력 열을 정하지 못해 비워 둠" in page.text
+        assert 'id="recheck"' in page.text
+        assert (await ac.post("/api/v1/notion/disconnect")).status_code == 200
         await asyncio.gather(*main_mod._closing)
 
 

@@ -5,9 +5,12 @@ import json
 import httpx
 import pytest
 from notion_client import AsyncClient
+from notion_client.errors import HTTPResponseError
 
 from app.config import Settings
-from app.notion_store import NotionError, NotionStore, build_children, extract_notion_id
+from app.notion_store import (
+    COMPANY_ROLES, JOB_ROLES, NotionError, NotionStore, _pick_option, build_children, extract_notion_id, resolve_props,
+)
 from app.parsers.sites import saramin
 from app.collection.urls import normalize
 from tests.helpers import load, parse_saramin
@@ -16,18 +19,37 @@ JOB_DS = "1" * 32  # check_schema가 링크처럼 ID를 해석하므로 실제 �
 JOB_DB = "2" * 32
 COMPANY_DS = "company-ds"
 RELATION = {"type": "relation", "relation": {"data_source_id": COMPANY_DS, "type": "dual_property"}}
+STAGE = {"type": "status", "status": {
+    "options": [{"id": "s1", "name": "📌 시작 전"}, {"id": "s2", "name": "✅ 지원 완료"}],
+    "groups": [{"name": "To-do", "option_ids": ["s1"]}, {"name": "Complete", "option_ids": ["s2"]}]}}
+JOB_SCHEMA = {"공고명": {"type": "title"}, "기업명": RELATION, "마감일": {"type": "date"},
+              "경력": {"type": "select"}, "URL": {"type": "url"}, "지원 단계": STAGE}
+COMPANY_SCHEMA = {"기업명": {"type": "title"}, "상태": {"type": "select", "select": {
+    "options": [{"id": "c0", "name": "⭐ 관심"}, {"id": "c1", "name": "⚪️ 리서치 중"}]}}}
 
 
 def settings() -> Settings:
     return Settings(notion_token="t", job_data_source_id=JOB_DS, _env_file=None)
 
 
-def make_store(handler):
+def make_store(handler, job_schema=JOB_SCHEMA, company_schema=COMPANY_SCHEMA):
     http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     client = AsyncClient(auth="t", client=http)
     store = NotionStore(settings(), client)
-    store.company_source_id = COMPANY_DS  # 원래는 check_schema가 relation에서 채운다
+    # 원래는 check_schema가 스키마를 읽어 채운다
+    store.job_props = resolve_props(job_schema, JOB_ROLES)[0]
+    store.company_props = resolve_props(company_schema, COMPANY_ROLES)[0]
+    store.company_source_id = COMPANY_DS if store.job_props["company"][1]["type"] == "relation" else ""
     return store
+
+
+def schema_handler(job_schema=JOB_SCHEMA, company_schema=COMPANY_SCHEMA):
+    def handler(req: httpx.Request):
+        if JOB_DS in req.url.path:
+            return httpx.Response(200, json={"object": "data_source", "properties": job_schema})
+        assert COMPANY_DS in req.url.path
+        return httpx.Response(200, json={"object": "data_source", "properties": company_schema})
+    return handler
 
 
 def company_page(pid: str, title: str) -> dict:
@@ -129,38 +151,127 @@ async def test_create_posting_payload():
     assert 0 < len(body["children"]) <= 100
 
 
-async def test_schema_check_reports_missing_property():
-    def handler(req: httpx.Request):
-        if JOB_DS in req.url.path:
-            return httpx.Response(200, json={"object": "data_source", "properties": {
-                "공고명": {"type": "title"}, "기업명": RELATION, "마감일": {"type": "date"},
-                "URL": {"type": "url"}, "지원 단계": {"type": "status"}}})
-        assert COMPANY_DS in req.url.path
-        return httpx.Response(200, json={"object": "data_source", "properties": {
-            "기업명": {"type": "title"}, "상태": {"type": "select"}}})
-
-    store = make_store(handler)
-    store.company_source_id = ""
-    problems = await store.check_schema()
-    assert len(problems) == 1 and "'경력'" in problems[0]
-    assert store.company_source_id == COMPANY_DS  # 기업 DB는 기업명 relation이 가리키는 곳
+async def test_schema_check_warns_missing_optional_column():
+    schema = {k: v for k, v in JOB_SCHEMA.items() if k != "경력"}
+    store = make_store(schema_handler(schema))
+    store.company_source_id, store.job_props = "", {}
+    assert await store.check_schema() == []
+    assert store.company_source_id == COMPANY_DS  # 기업 DB는 기업 relation이 가리키는 곳
+    assert store.job_props["deadline"][0] == "마감일" and "career" not in store.job_props
+    assert len(store.warnings) == 1 and store.warnings[0].startswith("채용 지원 관리 DB: 경력 열을 정하지 못해 비워 둠")
 
 
-@pytest.mark.parametrize("company_prop, expected", [
-    ({"type": "relation", "relation": {}}, "relation이 가리키는 관심 기업 리스트 DB를 찾지 못함"),
-    ({"type": "rich_text"}, "'기업명' 속성이 없거나 형식이 다름"),
-])
-async def test_schema_check_needs_company_relation(company_prop, expected):
+async def test_schema_check_needs_company_relation_target():
     def handler(req: httpx.Request):
         assert JOB_DS in req.url.path  # 기업 DB를 모르면 조회하지 않는다
         return httpx.Response(200, json={"object": "data_source", "properties": {
-            "공고명": {"type": "title"}, "기업명": company_prop, "마감일": {"type": "date"},
-            "경력": {"type": "select"}, "URL": {"type": "url"}, "지원 단계": {"type": "status"}}})
+            **JOB_SCHEMA, "기업명": {"type": "relation", "relation": {}}}})
 
     store = make_store(handler)
     store.company_source_id = ""
     problems = await store.check_schema()
-    assert len(problems) == 1 and expected in problems[0] and store.company_source_id == ""
+    assert problems == ["채용 지원 관리 DB: '기업명' relation이 가리키는 관심 기업 리스트 DB를 찾지 못함"]
+    assert store.company_source_id == ""
+
+
+async def test_schema_check_blocks_without_url_column():
+    schema = {k: v for k, v in JOB_SCHEMA.items() if k != "URL"}
+    problems = await make_store(schema_handler(schema)).check_schema()
+    assert len(problems) == 1 and problems[0].startswith("채용 지원 관리 DB: URL 열을 정하지 못함")
+
+
+async def test_schema_check_company_as_text_skips_company_db():
+    schema = {**JOB_SCHEMA, "기업명": {"type": "rich_text"}}
+
+    def handler(req: httpx.Request):
+        assert JOB_DS in req.url.path  # relation이 없으면 기업 DB를 쓰지 않는다
+        return httpx.Response(200, json={"object": "data_source", "properties": schema})
+
+    store = make_store(handler)
+    assert await store.check_schema() == []
+    assert store.company_source_id == "" and store.job_props["company"][0] == "기업명"
+    assert await store.find_or_create_company("(주)로브로스") is None
+
+
+def test_resolve_renamed_columns_by_type_and_keyword():
+    found, problems, warnings = resolve_props({
+        "제목": {"type": "title"}, "회사": RELATION, "지원일": {"type": "date"}, "지원 마감": {"type": "date"},
+        "연차": {"type": "multi_select"}, "직무": {"type": "select"}, "공고 주소": {"type": "url"},
+        "진행": {"type": "status"}, "메모": {"type": "rich_text"},
+    }, JOB_ROLES)
+    assert {k: v[0] for k, v in found.items()} == {
+        "title": "제목", "company": "회사", "url": "공고 주소", "deadline": "지원 마감", "career": "연차", "stage": "진행"}
+    assert problems == warnings == []
+
+
+def test_resolve_needs_keyword_for_date_and_select():
+    # 날짜·선택 열이 하나뿐이어도 이름이 안 맞으면 쓰지 않는다(지원일에 마감일이 들어가지 않게)
+    found, problems, warnings = resolve_props({
+        "공고명": {"type": "title"}, "기업명": RELATION, "URL": {"type": "url"},
+        "지원일": {"type": "date"}, "직무": {"type": "select"},
+    }, JOB_ROLES)
+    assert set(found) == {"title", "company", "url"} and problems == []
+    assert [w.split(":")[0] for w in warnings] == [
+        "마감일 열을 정하지 못해 비워 둠", "경력 열을 정하지 못해 비워 둠", "지원 단계 열을 정하지 못해 비워 둠"]
+
+
+def test_resolve_ambiguous_and_type_priority():
+    found, _, warnings = resolve_props({
+        "공고명": {"type": "title"}, "기업명": RELATION, "URL": {"type": "url"},
+        "서류 마감": {"type": "date"}, "면접 마감": {"type": "date"},
+        "경력": {"type": "select"}, "경력 메모": {"type": "rich_text"},  # 같은 키워드면 앞선 형식(select)
+    }, JOB_ROLES)
+    assert found["career"][0] == "경력" and "deadline" not in found
+    assert "후보가 여러 개(서류 마감, 면접 마감)" in warnings[0]
+
+
+def test_resolve_does_not_reuse_column():
+    # 같은 열이 두 역할에 잡히지 않는다: 관계형이 없으면 텍스트 '기업명'이 기업, '기업 상태'는 지원 단계 후보
+    found, _, _ = resolve_props({
+        "공고명": {"type": "title"}, "기업명": {"type": "rich_text"}, "링크": {"type": "url"},
+        "기업 상태": {"type": "select"},
+    }, JOB_ROLES)
+    assert found["company"][0] == "기업명" and found["stage"][0] == "기업 상태"
+
+
+def test_pick_option():
+    assert _pick_option(STAGE, "📌 시작 전") == "📌 시작 전"
+    status = {"type": "status", "status": {
+        "options": [{"id": "a", "name": "완료"}, {"id": "b", "name": "대기"}],
+        "groups": [{"name": "To-do", "option_ids": ["b"]}, {"name": "Complete", "option_ids": ["a"]}]}}
+    assert _pick_option(status, "📌 시작 전") == "대기"  # 상태는 첫 그룹(할 일)의 첫 옵션
+    assert _pick_option(COMPANY_SCHEMA["상태"], "없는 옵션") == "⭐ 관심"
+    assert _pick_option({"type": "select", "select": {"options": []}}, "x") is None
+
+
+async def test_create_posting_fits_column_types():
+    body = {}
+    queries = []
+
+    def handler(req: httpx.Request):
+        if req.url.path.endswith("/query"):
+            queries.append(json.loads(req.content))
+            return httpx.Response(200, json={"object": "list", "results": [], "has_more": False})
+        body.update(json.loads(req.content))
+        return httpx.Response(200, json={"object": "page", "id": "p-1", "url": "https://www.notion.so/p1"})
+
+    store = make_store(handler, {
+        "공고명": {"type": "title"}, "회사": {"type": "rich_text"}, "링크": {"type": "rich_text"},
+        "마감": {"type": "rich_text"}, "경력": {"type": "multi_select"},
+        "단계": {"type": "select", "select": {"options": [{"id": "x", "name": "대기"}]}},
+    })
+    posting = parse_saramin("saramin_55434315.html", "55434315")
+    await store.create_posting(posting, None)
+    props = body["properties"]
+    assert props["회사"]["rich_text"][0]["text"]["content"] == "(주)로브로스"
+    assert props["링크"]["rich_text"][0]["text"]["content"] == posting.url
+    assert props["마감"]["rich_text"][0]["text"]["content"] == "2026-12-01"
+    assert props["경력"] == {"multi_select": [{"name": "신입/경력"}]}
+    assert props["단계"] == {"select": {"name": "대기"}}
+
+    await store.find_by_url(normalize("https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=5"))
+    ors = queries[0]["filter"]["or"]
+    assert {"property": "링크", "rich_text": {"equals": "https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=5"}} in ors
 
 
 async def test_schema_check_accepts_database_link():
@@ -170,12 +281,9 @@ async def test_schema_check_accepts_database_link():
         if path.endswith(f"databases/{JOB_DB}"):
             return httpx.Response(200, json={"object": "database", "data_sources": [{"id": JOB_DS}]})
         if path.endswith(f"data_sources/{JOB_DS}"):
-            return httpx.Response(200, json={"object": "data_source", "properties": {
-                "공고명": {"type": "title"}, "기업명": RELATION, "마감일": {"type": "date"},
-                "경력": {"type": "select"}, "URL": {"type": "url"}, "지원 단계": {"type": "status"}}})
+            return httpx.Response(200, json={"object": "data_source", "properties": JOB_SCHEMA})
         if path.endswith(f"data_sources/{COMPANY_DS}"):
-            return httpx.Response(200, json={"object": "data_source", "properties": {
-                "기업명": {"type": "title"}, "상태": {"type": "select"}}})
+            return httpx.Response(200, json={"object": "data_source", "properties": COMPANY_SCHEMA})
         return httpx.Response(404, json={"object": "error", "status": 404, "code": "object_not_found", "message": "nf"})
 
     store = make_store(handler)
@@ -260,3 +368,60 @@ def test_extract_notion_id():
     assert extract_notion_id(f"https://www.notion.so/deadbeef-{job_id}?v={'9' * 32}") == job_id
     with pytest.raises(NotionError):
         extract_notion_id("https://www.notion.so/no-id")
+
+
+def schema_rejected():
+    return httpx.Response(400, json={"object": "error", "status": 400, "code": "validation_error",
+                                     "message": "URL is not a property that exists."})
+
+
+async def test_create_posting_rereads_schema_after_rejection():
+    # 연결한 뒤 노션에서 URL 열 이름을 '링크'로 바꾼 상황
+    renamed = {**{k: v for k, v in JOB_SCHEMA.items() if k != "URL"}, "링크": {"type": "url"}}
+    created = []
+
+    def handler(req: httpx.Request):
+        if req.method == "GET":
+            assert JOB_DS in req.url.path or COMPANY_DS in req.url.path
+            schema = renamed if JOB_DS in req.url.path else COMPANY_SCHEMA
+            return httpx.Response(200, json={"object": "data_source", "properties": schema})
+        props = json.loads(req.content)["properties"]
+        created.append(props)
+        if "URL" in props:
+            return schema_rejected()
+        return httpx.Response(200, json={"object": "page", "id": "p-1", "url": "https://www.notion.so/p1"})
+
+    store = make_store(handler)
+    page = await store.create_posting(parse_saramin("saramin_55434315.html", "55434315"), "c-1")
+    assert page["id"] == "p-1" and len(created) == 2
+    assert "링크" in created[1] and "URL" not in created[1]
+    assert store.job_props["url"][0] == "링크"
+
+
+async def test_schema_reread_with_problem_does_not_retry():
+    calls = []
+
+    def handler(req: httpx.Request):
+        calls.append(req.method)
+        if req.method == "GET":  # URL 열을 지워 버린 상황
+            schema = {k: v for k, v in JOB_SCHEMA.items() if k != "URL"}
+            return httpx.Response(200, json={"object": "data_source", "properties": schema})
+        return schema_rejected()
+
+    store = make_store(handler)
+    with pytest.raises(NotionError, match="URL 열을 정하지 못함"):
+        await store.find_by_url(normalize("https://www.wanted.co.kr/wd/394267"))
+    assert calls[0] == "POST" and calls.count("POST") == 1  # 다시 읽은 스키마에 문제가 있으면 재시도하지 않는다
+
+
+async def test_other_errors_are_not_retried():
+    calls = []
+
+    def handler(req: httpx.Request):
+        calls.append(req.method)
+        return httpx.Response(404, json={"object": "error", "status": 404, "code": "object_not_found", "message": "nf"})
+
+    store = make_store(handler)
+    with pytest.raises(HTTPResponseError):
+        await store.find_or_create_company("카카오")
+    assert calls == ["POST"]

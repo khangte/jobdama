@@ -11,6 +11,7 @@ import asyncio
 import logging
 import re
 from datetime import datetime
+from typing import NamedTuple
 
 import httpx
 from notion_client import AsyncClient
@@ -26,6 +27,102 @@ log = logging.getLogger(__name__)
 
 NOT_FOUND_TEXT = "공고에서 확인 불가"
 MAX_TEXT = 1900  # 노션 rich_text 한 덩어리 한도(2000자) 여유
+STAGE_DEFAULT = "📌 시작 전"  # 옵션에 있으면 우선, 없으면 첫 옵션
+COMPANY_STATUS_DEFAULT = "⚪️ 리서치 중"
+
+
+class Role(NamedTuple):
+    """노션 DB에서 값을 넣을 열을 찾는 규칙. 스키마에는 이름·형식·옵션만 있어 용도는 이름으로 짐작한다."""
+    label: str
+    types: tuple[str, ...]  # 받을 수 있는 노션 형식, 앞일수록 우선
+    keywords: tuple[str, ...] = ()  # 이름(소문자, 공백 제거)에 들어 있으면 후보
+    required: bool = False  # 못 찾으면 저장을 막는다. 아니면 비우고 경고만
+    by_type: bool = True  # 첫 형식인 열이 하나뿐이면 이름을 보지 않고 쓴다
+
+
+JOB_ROLES = {
+    "title": Role("공고명", ("title",), required=True),
+    "company": Role("기업", ("relation", "rich_text", "select"), ("기업", "회사", "company"), required=True),
+    "url": Role("URL", ("url", "rich_text"), ("url", "링크", "link"), required=True),
+    # 날짜·선택 열은 여러 용도로 쓰여(지원일, 직무 등) 하나뿐이어도 이름이 맞아야 쓴다
+    "deadline": Role("마감일", ("date", "rich_text"), ("마감", "deadline", "due"), by_type=False),
+    "career": Role("경력", ("select", "multi_select", "rich_text"), ("경력", "career", "연차", "experience"), by_type=False),
+    "stage": Role("지원 단계", ("status", "select"), ("단계", "상태", "stage", "status")),
+}
+COMPANY_ROLES = {
+    "title": Role("기업명", ("title",), required=True),
+    "status": Role("상태", ("status", "select"), ("상태", "단계", "status", "stage"), by_type=False),
+}
+TYPE_NAMES = {"title": "제목", "rich_text": "텍스트", "url": "URL", "date": "날짜", "select": "선택",
+              "multi_select": "다중 선택", "status": "상태", "relation": "관계형"}
+
+Found = dict[str, tuple[str, dict]]  # 역할 -> (열 이름, 스키마의 속성 정보)
+
+
+def _pick(props: dict, role: Role) -> tuple[tuple[str, dict] | None, str]:
+    """역할에 맞는 열 하나와, 못 찾았으면 그 이유."""
+    cands = [(n, p) for n, p in props.items() if p.get("type") in role.types]
+    if role.by_type:
+        first = [c for c in cands if c[1]["type"] == role.types[0]]
+        if len(first) == 1:
+            return first[0], ""
+    hits = [c for c in cands if any(k in c[0].lower().replace(" ", "") for k in role.keywords)]
+    for t in role.types:  # 이름이 맞는 열이 여러 개면 앞선 형식만 남긴다
+        if same := [c for c in hits if c[1]["type"] == t]:
+            hits = same
+            break
+    if len(hits) == 1:
+        return hits[0], ""
+    if hits:
+        return None, f"후보가 여러 개({', '.join(n for n, _ in hits)})"
+    types = "/".join(TYPE_NAMES[t] for t in role.types)
+    if role.keywords:
+        return None, f"이름에 {'·'.join(role.keywords)} 중 하나가 들어간 {types} 열이 없음"
+    return None, f"{types} 열이 없음"
+
+
+def resolve_props(props: dict, roles: dict[str, Role]) -> tuple[Found, list[str], list[str]]:
+    """스키마의 열을 역할에 짝짓는다. (찾은 열, 저장을 막는 문제, 비워 두는 경고)"""
+    found: Found = {}
+    problems: list[str] = []
+    warnings: list[str] = []
+    for key, role in roles.items():
+        hit, why = _pick({n: p for n, p in props.items() if n not in {f[0] for f in found.values()}}, role)
+        if hit:
+            found[key] = hit
+        elif role.required:
+            problems.append(f"{role.label} 열을 정하지 못함: {why}")
+        else:
+            warnings.append(f"{role.label} 열을 정하지 못해 비워 둠: {why}")
+    return found, problems, warnings
+
+
+def _pick_option(prop: dict, preferred: str) -> str | None:
+    """선택·상태 열에 넣을 옵션. 원하는 이름이 없으면 상태는 첫 그룹(할 일)의 첫 옵션, 선택은 첫 옵션."""
+    conf = prop.get(prop["type"]) or {}
+    names = {o.get("id"): o["name"] for o in conf.get("options", [])}
+    if preferred in names.values():
+        return preferred
+    for group in conf.get("groups", []):
+        for oid in group.get("option_ids", []):
+            if oid in names:
+                return names[oid]
+    return next(iter(names.values()), None)
+
+
+def _prop_value(ptype: str, value: str) -> dict:
+    if ptype in ("select", "multi_select"):
+        value = value.replace(",", " ")  # 선택 옵션 이름에는 쉼표를 쓸 수 없다
+    return {
+        "title": lambda: {"title": [_rt(value)]},
+        "rich_text": lambda: {"rich_text": [_rt(value)]},
+        "url": lambda: {"url": value},
+        "date": lambda: {"date": {"start": value}},
+        "select": lambda: {"select": {"name": value}},
+        "multi_select": lambda: {"multi_select": [{"name": value}]},
+        "status": lambda: {"status": {"name": value}},
+        "relation": lambda: {"relation": [{"id": value}]},
+    }[ptype]()
 
 
 class NotionError(Exception):
@@ -50,6 +147,11 @@ def extract_notion_id(link: str) -> str:
     if not ids:
         raise NotionError("노션 링크에서 ID를 찾지 못함")
     return ids[-1].replace("-", "")
+
+
+def is_schema_error(e: Exception) -> bool:
+    """열 이름·형식이 맞지 않아 노션이 요청을 거부한 오류. 거부된 요청은 반영되지 않는다."""
+    return isinstance(e, HTTPResponseError) and e.status == 400 and getattr(e.code, "value", e.code) == "validation_error"
 
 
 def describe_error(e: Exception) -> str:
@@ -136,12 +238,16 @@ class NotionStore:
         self.s = settings
         self.client = client or AsyncClient(auth=settings.notion_token, timeout_ms=30_000)
         self._company_locks: dict[str, asyncio.Lock] = {}
-        self.company_source_id = ""  # check_schema가 채용 DB의 relation에서 채운다
+        # 아래 값은 check_schema가 스키마를 읽어 채운다
+        self.company_source_id = ""  # 기업 열이 relation일 때 그 relation이 가리키는 관심 기업 리스트 DB
+        self.job_props: Found = {}
+        self.company_props: Found = {}
+        self.warnings: list[str] = []  # 정하지 못해 비워 두는 열
 
     # ------------------------------------------------------------ 점검
     async def check_schema(self) -> list[str]:
-        """DB 속성 이름·형식 점검. 문제 목록을 돌려준다(없으면 빈 목록).
-        관심 기업 리스트 DB는 채용 DB의 기업명 relation이 가리키는 곳으로 정한다(company_source_id)."""
+        """DB 스키마에서 값을 넣을 열을 정한다. 저장을 막는 문제 목록을 돌려준다(없으면 빈 목록).
+        기업 열이 relation이면 그것이 가리키는 관심 기업 리스트 DB도 점검한다."""
         s = self.s
         if not s.notion_token:
             return ["NOTION_TOKEN이 설정되지 않음 (.env 확인)"]
@@ -154,34 +260,31 @@ class NotionStore:
             return [f"채용 지원 관리 DB: {e}"]
         except Exception as e:
             return [f"채용 지원 관리 DB 접근 실패 ({describe_error(e)})"]
-        expected_jobs = {
-            s.prop_title: "title", s.prop_company: "relation", s.prop_deadline: "date",
-            s.prop_career: "select", s.prop_url: "url", s.prop_stage: "status",
-        }
-        expected_company = {s.company_prop_title: "title", s.company_prop_status: "select"}
-        props, problems = await self._check_source(s.job_data_source_id, expected_jobs, "채용 지원 관리 DB")
-        if props is None:
+        name = "채용 지원 관리 DB"
+        jobs, problems, warnings = await self._check_source(s.job_data_source_id, JOB_ROLES, name)
+        company_id, companies = "", {}
+        company = jobs.get("company")
+        if company and company[1]["type"] == "relation":
+            company_id = (company[1].get("relation") or {}).get("data_source_id", "")
+            if not company_id:
+                problems.append(f"{name}: '{company[0]}' relation이 가리키는 관심 기업 리스트 DB를 찾지 못함")
+            else:
+                companies, more, more_warnings = await self._check_source(company_id, COMPANY_ROLES, "관심 기업 리스트 DB")
+                problems += more
+                warnings += more_warnings
+        if problems:
             return problems
-        company_id = (props.get(s.prop_company, {}).get("relation") or {}).get("data_source_id", "")
-        if not company_id:
-            if not problems:  # 형식이 relation이 아니면 위에서 이미 알렸다
-                problems.append(f"채용 지원 관리 DB: '{s.prop_company}' relation이 가리키는 관심 기업 리스트 DB를 찾지 못함")
-            return problems
-        # 점검 중에도 저장 작업이 이 값을 쓰므로 비우지 않고 찾았을 때만 바꾼다
-        self.company_source_id = company_id
-        return problems + (await self._check_source(company_id, expected_company, "관심 기업 리스트 DB"))[1]
+        # 점검 중에도 저장 작업이 이 값을 쓰므로 다 정한 뒤 한 번에 바꾼다
+        self.job_props, self.company_props, self.company_source_id, self.warnings = jobs, companies, company_id, warnings
+        return []
 
-    async def _check_source(self, ds_id: str, expected: dict[str, str], name: str) -> tuple[dict | None, list[str]]:
+    async def _check_source(self, ds_id: str, roles: dict[str, Role], name: str) -> tuple[Found, list[str], list[str]]:
         try:
             ds = await self.client.data_sources.retrieve(data_source_id=ds_id)
         except Exception as e:
-            return None, [f"{name} 접근 실패 ({describe_error(e)})"]
-        props = ds.get("properties", {})
-        problems = [
-            f"{name}: '{prop}' 속성이 없거나 형식이 다름 (기대 {typ}, 실제 {props.get(prop, {}).get('type')})"
-            for prop, typ in expected.items() if props.get(prop, {}).get("type") != typ
-        ]
-        return props, problems
+            return {}, [f"{name} 접근 실패 ({describe_error(e)})"], []
+        found, problems, warnings = resolve_props(ds.get("properties", {}), roles)
+        return found, [f"{name}: {p}" for p in problems], [f"{name}: {w}" for w in warnings]
 
     async def resolve_data_source_id(self, link: str) -> str:
         """링크가 data source면 그 ID, database면 그 안의 유일한 data source ID를 돌려준다."""
@@ -200,12 +303,29 @@ class NotionStore:
             raise NotionError("data source가 여러 개라 고를 수 없음, data source ID를 직접 입력")
         return sources[0]["id"]
 
+    async def _retry_on_schema_change(self, call):
+        """연결한 뒤 노션에서 열을 바꿔 요청이 거부되면 스키마를 다시 읽고 한 번만 다시 보낸다.
+        다시 읽은 스키마에 문제가 있으면(필수 열 없음) 보내지 않고 그 문제로 실패한다."""
+        try:
+            return await call()
+        except Exception as e:
+            if not is_schema_error(e):
+                raise
+            log.warning("노션이 요청을 거부해 스키마를 다시 읽음: %s", e)
+        if problems := await self.check_schema():
+            raise NotionError(" / ".join(problems))
+        return await call()
+
     # ------------------------------------------------------------ 공고
     async def find_by_url(self, target: NormalizedURL) -> dict | None:
         """같은 공고 URL이 이미 있는지. 예전에 다른 형식(추적 파라미터 포함 등)으로 저장한 URL도 함께 찾는다."""
-        prop = self.s.prop_url
-        conditions = [{"property": prop, "url": {"equals": target.url}}]
-        conditions += [{"property": prop, "url": {op: value}} for op, value in target.match]
+        return await self._retry_on_schema_change(lambda: self._find_by_url(target))
+
+    async def _find_by_url(self, target: NormalizedURL) -> dict | None:
+        prop, info = self.job_props["url"]
+        kind = info["type"]  # url과 rich_text 필터는 같은 조건(equals, ends_with, contains)을 받는다
+        conditions = [{"property": prop, kind: {"equals": target.url}}]
+        conditions += [{"property": prop, kind: {op: value}} for op, value in target.match]
         filt = {"or": conditions} if len(conditions) > 1 else conditions[0]
         res = await self.client.data_sources.query(
             data_source_id=self.s.job_data_source_id,
@@ -217,42 +337,54 @@ class NotionStore:
         return results[0] if results else None
 
     async def create_posting(self, p: Posting, company_page_id: str | None) -> dict:
-        s = self.s
-        props: dict = {
-            s.prop_title: {"title": [_rt(p.title)]},
-            s.prop_url: {"url": p.url},
-            s.prop_stage: {"status": {"name": s.stage_default}},
+        return await self._retry_on_schema_change(lambda: self._create_posting(p, company_page_id))
+
+    async def _create_posting(self, p: Posting, company_page_id: str | None) -> dict:
+        found = self.job_props
+        types = {role: info["type"] for role, (_, info) in found.items()}
+        deadline = p.deadline.isoformat() if p.deadline else None
+        values = {
+            "title": p.title,
+            "company": company_page_id if types.get("company") == "relation" else p.company,
+            "url": p.url,
+            "deadline": deadline or (p.deadline_raw if types.get("deadline") == "rich_text" else None),
+            "career": p.career_select,
+            "stage": _pick_option(found["stage"][1], STAGE_DEFAULT) if "stage" in found else None,
         }
-        if company_page_id:
-            props[s.prop_company] = {"relation": [{"id": company_page_id}]}
-        if p.deadline:
-            props[s.prop_deadline] = {"date": {"start": p.deadline.isoformat()}}
-        if p.career_select:
-            props[s.prop_career] = {"select": {"name": p.career_select}}
+        props = {found[role][0]: _prop_value(types[role], v) for role, v in values.items() if v and role in found}
         return await self.client.pages.create(
-            parent={"type": "data_source_id", "data_source_id": s.job_data_source_id},
+            parent={"type": "data_source_id", "data_source_id": self.s.job_data_source_id},
             properties=props,
             children=build_children(p),
         )
 
     # ------------------------------------------------------------ 기업
-    async def find_or_create_company(self, name: str) -> str:
+    async def find_or_create_company(self, name: str) -> str | None:
+        """관심 기업 리스트 DB의 기업 페이지 ID. 기업 열이 relation이 아니면(기업명을 글자로 넣음) None."""
+        if not self.company_source_id:
+            return None
         key = normalize_company(name)
         if not key:
             raise NotionError("기업명이 비어 있음")
         lock = self._company_locks.setdefault(key, asyncio.Lock())
         async with lock:
-            found = await self._find_company(key)
-            if found:
-                return found
-            page = await self.client.pages.create(
-                parent={"type": "data_source_id", "data_source_id": self.company_source_id},
-                properties={
-                    self.s.company_prop_title: {"title": [_rt(name)]},
-                    self.s.company_prop_status: {"select": {"name": self.s.company_status_default}},
-                },
-            )
-            return page["id"]
+            return await self._retry_on_schema_change(lambda: self._find_or_create_company(name, key))
+
+    async def _find_or_create_company(self, name: str, key: str) -> str | None:
+        if not self.company_source_id:  # 다시 읽은 스키마에서 기업 열이 relation이 아니게 됐을 수 있다
+            return None
+        found = await self._find_company(key)
+        if found:
+            return found
+        props = {self.company_props["title"][0]: _prop_value("title", name)}
+        status = self.company_props.get("status")
+        if status and (option := _pick_option(status[1], COMPANY_STATUS_DEFAULT)):
+            props[status[0]] = _prop_value(status[1]["type"], option)
+        page = await self.client.pages.create(
+            parent={"type": "data_source_id", "data_source_id": self.company_source_id},
+            properties=props,
+        )
+        return page["id"]
 
     async def _find_company(self, key: str) -> str | None:
         # 제목 contains 검색은 띄어쓰기 차이("SK 텔레콤"/"SK텔레콤")를 놓치므로 기업 DB 전체를 받아 정규화해 비교한다.
@@ -264,7 +396,7 @@ class NotionStore:
             page_size=100,
         )
         async for page in pages:
-            title_prop = page.get("properties", {}).get(self.s.company_prop_title, {})
+            title_prop = page.get("properties", {}).get(self.company_props["title"][0], {})
             title = "".join(t.get("plain_text", "") for t in title_prop.get("title", []))
             if normalize_company(title) == key:
                 return page["id"]

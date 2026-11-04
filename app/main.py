@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
     browser = BrowserFetcher() if settings.use_playwright else None
     store = NotionStore(settings)
     problems = await store.check_schema()
-    for p in problems:
+    for p in problems + store.warnings:
         log.warning("노션 점검: %s", p)
     service = JobService(
         Collector(HttpFetcher(http_client), browser),
@@ -84,6 +84,7 @@ async def index(request: Request):
     s = request.app.state
     return templates.TemplateResponse(request, "index.html", {
         "problems": s.problems,
+        "warnings": getattr(s.store, "warnings", []),  # 연결 전에는 store가 점검 전 상태일 수 있다
         "jobs": s.service.recent(s.settings.max_jobs_shown),
     })
 

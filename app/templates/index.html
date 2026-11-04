@@ -19,6 +19,7 @@
     {% if not problems %}<section class="popover" id="connection-popover" role="dialog" aria-label="Notion 연결 정보" hidden>
       <h2>Notion 연결</h2><p class="connected-copy">연결이 정상적으로 작동하고 있어요</p>
       <div class="db-list"><div class="db-row">채용 지원 관리<small>공고가 저장되는 데이터베이스</small></div></div>
+      {% if warnings %}<details class="advanced connection-problems"><summary>비워 두는 열 {{ warnings|length }}개</summary><ul>{% for warning in warnings %}<li>{{ warning }}</li>{% endfor %}</ul><p class="popover-note">Notion에서 열 이름을 바꾼 뒤 다시 점검하면 반영돼요.</p><button class="secondary" type="button" id="recheck">다시 점검</button></details>{% endif %}
       <button class="disconnect-link" id="disconnect-open">연결 해제</button><p class="popover-note">저장한 공고는 Notion에 그대로 남아요.</p>
     </section>{% endif %}
   </div></nav>
