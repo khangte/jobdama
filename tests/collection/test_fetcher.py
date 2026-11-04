@@ -4,6 +4,7 @@ import httpx
 import playwright.async_api
 import pytest
 
+import app.collection.fetcher as fetcher_mod
 from app.collection.fetcher import (
     BlockedTarget, BrowserFetcher, FetchError, HttpFetcher, check_target, decode_html, is_public_host,
     looks_like_challenge,
@@ -141,3 +142,58 @@ async def test_browser_relaunched_after_crash(monkeypatch):
     assert browser is not dead and browser.is_connected()
     assert dead.closed and old_pw.stopped
     assert await b._ensure_browser() is browser  # 살아 있으면 재사용
+
+
+async def test_http_fetcher_rejects_oversized_content_length_without_reading_body(monkeypatch):
+    monkeypatch.setattr(fetcher_mod, "MAX_BYTES", 10)
+    read = {"n": 0}
+
+    async def body():
+        read["n"] += 1
+        yield b"x" * 100
+
+    def handler(req):
+        return httpx.Response(200, headers={"content-length": "100"}, content=body())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+        with pytest.raises(FetchError, match="너무 큼"):
+            await HttpFetcher(c).fetch("http://8.8.8.8/jobs/1", GENERIC)
+    assert read["n"] == 0
+
+
+async def test_http_fetcher_stops_streaming_past_max_bytes(monkeypatch):
+    monkeypatch.setattr(fetcher_mod, "MAX_BYTES", 10)
+    sent = {"n": 0}
+
+    async def body():  # Content-Length 없이 끝없이 보내는 서버
+        for _ in range(1000):
+            sent["n"] += 1
+            yield b"x" * 8
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200, content=body()))) as c:
+        with pytest.raises(FetchError, match="너무 큼"):
+            await HttpFetcher(c).fetch("http://8.8.8.8/jobs/1", GENERIC)
+    assert sent["n"] < 5
+
+
+async def test_http_fetcher_pins_validated_ip_against_dns_rebinding(monkeypatch):
+    resolved = []
+
+    async def fake_resolve(host):
+        resolved.append(host)
+        return "93.184.216.34"
+
+    monkeypatch.setattr(fetcher_mod, "resolve_public", fake_resolve)
+    seen = []
+
+    def handler(req: httpx.Request):
+        seen.append(req)
+        return httpx.Response(200, content=b"<html><title>ok</title></html>")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+        await HttpFetcher(c).fetch("https://careers.example.com:8443/jobs/1", GENERIC)
+    assert resolved == ["careers.example.com"]  # 한 번만 조회
+    req = seen[0]
+    assert req.url.host == "93.184.216.34"  # 검증한 IP로 직접 연결
+    assert req.headers["host"] == "careers.example.com:8443"
+    assert req.extensions["sni_hostname"] == "careers.example.com"

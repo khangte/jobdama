@@ -48,10 +48,12 @@ def format_title(raw_title: str, company: str | None) -> str:
         return title
     core = normalize_company(company)
     if core:
-        m = re.match(r"^[\[【(]\s*([^\]】)]+?)\s*[\]】)]\s*(.+)$", title)
-        if m and normalize_company(m.group(1)) == core:
-            title = m.group(2)
+        # 괄호 종류별로 짝을 맞춘다: '[(주)X]'처럼 안쪽에 ')'가 있어도 끊기지 않게
+        m = re.match(r"^(?:\[\s*([^\]]+?)\s*\]|【\s*([^】]+?)\s*】|\(\s*([^)]+?)\s*\))\s*(.+)$", title)
+        if m and normalize_company(m.group(1) or m.group(2) or m.group(3)) == core:
+            title = m.group(4)
         else:
+            title = re.sub(rf"^(?:{_CORP_RE.pattern})\s*", "", title)  # '(주)X 공고'의 앞머리 (주)
             plain = clean(_CORP_RE.sub("", company))
             for prefix in (company, plain):
                 if prefix and title.startswith(prefix):

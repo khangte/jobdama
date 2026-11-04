@@ -317,3 +317,14 @@ async def test_past_deadline_marked_expired():
     job = svc.submit("https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=54220010")
     await svc.wait_idle()
     assert job.status is JobStatus.SAVED and "마감된 공고" in job.message
+
+
+async def test_store_swapped_mid_job_keeps_using_original_store():
+    old, new = FakeStore(), FakeStore()
+    svc = make(FakeFetcher(LIVE, delay=0.05), old)
+    job = svc.submit(URL)
+    await asyncio.sleep(0.02)  # 수집 중에 노션 연결 교체
+    svc.store = new
+    await svc.wait_idle()
+    assert job.status is JobStatus.SAVED
+    assert len(old.pages) == 1 and not new.pages and not new.companies

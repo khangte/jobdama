@@ -57,6 +57,9 @@ def test_parse_deadline(raw, expected):
     ("데이터 엔지니어", None, "데이터 엔지니어"),
     ("토스뱅크 Server Developer", "토스", "[토스] 토스뱅크 Server Developer"),
     ("카카오페이 백엔드 개발자", "카카오", "[카카오] 카카오페이 백엔드 개발자"),
+    ("[(주)디비투이] 백엔드", "(주)디비투이", "[(주)디비투이] 백엔드"),
+    ("(주)디비투이 백엔드", "디비투이", "[디비투이] 백엔드"),
+    ("【(주)디비투이】 백엔드", "디비투이", "[디비투이] 백엔드"),
 ])
 def test_format_title(raw, company, expected):
     assert format_title(raw, company) == expected

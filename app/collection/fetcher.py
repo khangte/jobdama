@@ -70,27 +70,39 @@ def looks_like_challenge(html: str) -> bool:
     return len(html) < 60_000 and any(k in head for k in CHALLENGE_MARKERS[:5])
 
 
-async def is_public_host(host: str) -> bool:
-    """호스트의 DNS 결과가 모두 공개 IP인지. 내 PC의 내부망으로 요청이 가는 것을 막는다."""
+async def resolve_public(host: str) -> str | None:
+    """호스트의 DNS 결과가 모두 공개 IP이면 그중 하나를, 아니면 None. 내 PC의 내부망으로 요청이 가는 것을 막는다."""
     host = (host or "").strip("[]")
     try:
-        return ipaddress.ip_address(host).is_global
+        return host if ipaddress.ip_address(host).is_global else None
     except ValueError:
         pass
     loop = asyncio.get_running_loop()
     try:
         infos = await loop.getaddrinfo(host, None, type=socket.SOCK_STREAM)
     except socket.gaierror:
-        return False
-    addrs = {info[4][0] for info in infos}
-    return bool(addrs) and all(ipaddress.ip_address(a.split("%")[0]).is_global for a in addrs)
+        return None
+    addrs = sorted({info[4][0] for info in infos})
+    if addrs and all(ipaddress.ip_address(a.split("%")[0]).is_global for a in addrs):
+        return addrs[0]
+    return None
 
 
-async def check_target(url: str, site: Site) -> None:
+async def is_public_host(host: str) -> bool:
+    """호스트의 DNS 결과가 모두 공개 IP인지."""
+    return await resolve_public(host) is not None
+
+
+async def check_target(url: str, site: Site) -> str | None:
+    """허용 대상인지 확인한다. 자체 채용 사이트면 검증한 공개 IP를 돌려줘, 연결을 그 IP로 고정하게 한다."""
     if not is_allowed_fetch_url(url, site):
         raise BlockedTarget(f"허용되지 않은 주소: {url}")
-    if site is GENERIC and not await is_public_host(urlsplit(url).hostname or ""):
+    if site is not GENERIC:
+        return None
+    ip = await resolve_public(urlsplit(url).hostname or "")
+    if ip is None:
         raise BlockedTarget("내부망 주소로 연결되는 링크라 요청하지 않음")
+    return ip
 
 
 class HttpFetcher:
@@ -105,8 +117,8 @@ class HttpFetcher:
         current = url
         async with self._sem:
             for _ in range(MAX_REDIRECTS + 1):
-                await check_target(current, site)
-                resp = await self._get(current)
+                ip = await check_target(current, site)
+                resp, body = await self._get(current, ip)
                 if resp.is_redirect:
                     location = resp.headers.get("location")
                     if not location:
@@ -115,19 +127,39 @@ class HttpFetcher:
                     continue
                 if resp.status_code != 200:
                     raise FetchError(f"HTTP {resp.status_code}")
-                if len(resp.content) > MAX_BYTES:
-                    raise FetchError("응답이 너무 큼")
-                html = decode_html(resp.content, resp.charset_encoding)
+                html = decode_html(body, resp.charset_encoding)
                 if looks_like_challenge(html):
                     raise FetchError("봇 확인·차단 화면")
                 return html, current
         raise FetchError("리디렉션이 너무 많음")
 
-    async def _get(self, url: str) -> httpx.Response:
-        """GET이라 연결이 중간에 끊기면(서버가 연결을 닫는 등) 한 번 더 시도한다."""
+    async def _get(self, url: str, ip: str | None = None) -> tuple[httpx.Response, bytes]:
+        """(응답, 본문). 본문은 200일 때만 받고 MAX_BYTES를 넘으면 받는 도중에 끊는다.
+
+        ip가 있으면 검증한 그 IP로 연결하고 Host·SNI만 원래 호스트로 보낸다(DNS rebinding 방지).
+        GET이라 연결이 중간에 끊기면(서버가 연결을 닫는 등) 한 번 더 시도한다.
+        """
+        target, headers, ext = httpx.URL(url), HEADERS, {}
+        if ip and ip != target.host:
+            headers = {**HEADERS, "Host": target.netloc.decode("ascii")}
+            ext = {"sni_hostname": target.host}
+            target = target.copy_with(host=ip)
         for attempt in (1, 2):
             try:
-                return await self._client.get(url, headers=HEADERS, follow_redirects=False)
+                async with self._client.stream(
+                    "GET", target, headers=headers, follow_redirects=False, extensions=ext
+                ) as resp:
+                    if resp.is_redirect or resp.status_code != 200:
+                        return resp, b""
+                    length = resp.headers.get("content-length", "")
+                    if length.isdigit() and int(length) > MAX_BYTES:
+                        raise FetchError("응답이 너무 큼")
+                    body = bytearray()
+                    async for chunk in resp.aiter_bytes():
+                        body += chunk
+                        if len(body) > MAX_BYTES:
+                            raise FetchError("응답이 너무 큼")
+                    return resp, bytes(body)
             except httpx.TimeoutException:
                 raise FetchError("응답 시간 초과")
             except httpx.TransportError as e:

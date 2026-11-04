@@ -79,8 +79,9 @@ class JobService:
             self._finish(job, JobStatus.SAVE_FAILED, f"처리 중 오류: {type(e).__name__}")
 
     async def _process(self, job: Job, target: NormalizedURL) -> None:
+        store = self.store  # 연결이 바뀌어도 한 작업은 처음 잡은 store만 쓴다
         try:
-            existing = await self.store.find_by_url(target)
+            existing = await store.find_by_url(target)
         except Exception as e:
             self._finish(job, JobStatus.SAVE_FAILED, f"노션 조회 실패: {type(e).__name__}")
             return
@@ -100,13 +101,13 @@ class JobService:
         job.title = posting.title
 
         try:
-            company_id = await self.store.find_or_create_company(posting.company) if posting.company else None
+            company_id = await store.find_or_create_company(posting.company) if posting.company else None
         except Exception as e:
             self._finish(job, JobStatus.SAVE_FAILED, f"기업 조회·생성 실패: {type(e).__name__}")
             return
 
         try:
-            page = await self._create_with_recheck(posting, company_id, target)
+            page = await self._create_with_recheck(store, posting, company_id, target)
         except Exception as e:
             self._finish(job, JobStatus.SAVE_FAILED, f"공고 페이지 생성 실패: {type(e).__name__}")
             return
@@ -125,18 +126,18 @@ class JobService:
             notes.insert(0, "본문 구간을 찾지 못해 확인된 속성만 저장")
             self._finish(job, JobStatus.PARTIAL, ", ".join(notes))
 
-    async def _create_with_recheck(self, posting: Posting, company_id: str | None, target: NormalizedURL) -> dict:
+    async def _create_with_recheck(self, store: Store, posting: Posting, company_id: str | None, target: NormalizedURL) -> dict:
         """생성 응답이 끊기면(시간 초과, 연결 끊김, 5xx) 다시 조회한 뒤 없을 때만 1회 재시도."""
         try:
-            return await self.store.create_posting(posting, company_id)
+            return await store.create_posting(posting, company_id)
         except Exception as e:
             if not is_uncertain_write_error(e):
                 raise
             log.warning("생성 응답 불확실, 재조회: %s", e)
-        existing = await self.store.find_by_url(target)
+        existing = await store.find_by_url(target)
         if existing:
             return existing
-        return await self.store.create_posting(posting, company_id)
+        return await store.create_posting(posting, company_id)
 
     @staticmethod
     def _finish(job: Job, status: JobStatus, message: str = "") -> None:
