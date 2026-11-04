@@ -9,4 +9,6 @@ snapshots/
 .aws/
 .codex/
 .agents/
+AGENTS.md
 .claude/
+CLAUDE.md
