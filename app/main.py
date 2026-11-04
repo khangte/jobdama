@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import httpx
-from fastapi import FastAPI, Request
+from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -62,6 +62,7 @@ app = FastAPI(title="채용공고 노션 저장", lifespan=lifespan)
 # DNS rebinding 방어: 다른 사이트 도메인으로 들어온 요청은 거절한다
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1"])
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
+api = APIRouter(prefix="/api/v1")  # API 경로에 버전을 붙인다. 화면(/, /jobs)과 /health는 제외
 
 
 class SubmitIn(BaseModel):
@@ -77,13 +78,13 @@ async def index(request: Request):
     })
 
 
-@app.post("/api/jobs", status_code=202)
+@api.post("/jobs", status_code=202)
 async def submit(body: SubmitIn, request: Request):
     job = request.app.state.service.submit(body.url)
     return job.to_dict()
 
 
-@app.get("/api/jobs")
+@api.get("/jobs")
 async def list_jobs(request: Request):
     s = request.app.state
     return [j.to_dict() for j in s.service.recent(s.settings.max_jobs_shown)]
@@ -95,7 +96,7 @@ async def jobs_partial(request: Request):
     return templates.TemplateResponse(request, "_jobs.html", {"jobs": s.service.recent(s.settings.max_jobs_shown)})
 
 
-@app.post("/api/recheck")
+@api.post("/recheck")
 async def recheck(request: Request):
     s = request.app.state
     store = s.store
@@ -138,7 +139,7 @@ async def _close_when_idle(service: JobService, store: NotionStore) -> None:
         log.exception("이전 노션 연결 닫기 실패")
 
 
-@app.post("/api/notion/settings")
+@api.post("/notion/settings")
 async def save_notion_settings(body: NotionSettingsIn, request: Request):
     """노션 미연결 상태에서 토큰과 DB 링크를 받아 점검 후 .env에 저장하고 바로 연결한다."""
     origin = request.headers.get("origin")
@@ -200,3 +201,7 @@ async def save_notion_settings(body: NotionSettingsIn, request: Request):
 @app.get("/health")
 async def health(request: Request):
     return JSONResponse({"ok": True, "notion_ready": request.app.state.service.notion_ready})
+
+
+# 라우트를 모두 등록한 뒤 붙여야 한다
+app.include_router(api)

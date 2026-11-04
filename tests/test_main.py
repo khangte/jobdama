@@ -16,14 +16,21 @@ from app.service import JobService
 
 def test_foreign_host_rejected():
     client = TestClient(app, base_url="http://evil.example.com")
-    assert client.post("/api/jobs", json={"url": "https://example.com/jobs/1"}).status_code == 400
-    assert client.get("/api/jobs").status_code == 400
+    assert client.post("/api/v1/jobs", json={"url": "https://example.com/jobs/1"}).status_code == 400
+    assert client.get("/api/v1/jobs").status_code == 400
 
 
 def test_local_hosts_allowed():
     for host in ("localhost:8765", "127.0.0.1:8000"):
         client = TestClient(app, base_url=f"http://{host}")
         assert client.get("/static/app.js").status_code == 200
+
+
+def test_api_routes_are_versioned():
+    paths = set(app.openapi()["paths"])  # Swagger에 보이는 경로
+    assert {"/api/v1/jobs", "/api/v1/recheck", "/api/v1/notion/settings", "/jobs", "/health"} <= paths
+    assert not any(p.startswith("/api/") and not p.startswith("/api/v1/") for p in paths)
+    assert TestClient(app, base_url="http://localhost").get("/api/jobs").status_code == 404
 
 
 # ------------------------------------------------------------ 노션 설정 입력
@@ -100,7 +107,7 @@ async def test_notion_settings_saves_and_connects(setup_client):
     client, env, old, created = setup_client
     # 같은 이벤트 루프에서 호출해야 이전 store를 닫는 백그라운드 작업까지 기다릴 수 있다
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=main_mod.app), base_url="http://localhost") as ac:
-        res = await ac.post("/api/notion/settings", json={
+        res = await ac.post("/api/v1/notion/settings", json={
             "notion_token": "ntn_abc",
             "job_db": f"https://www.notion.so/ws/Jobs-{JOB_ID}?v={'9' * 32}",
             "company_db": COMPANY_DB_ID,
@@ -115,12 +122,12 @@ async def test_notion_settings_saves_and_connects(setup_client):
     st = main_mod.app.state
     assert st.service.notion_ready and st.service.store is st.store and old.closed and st.problems == []
     assert not any(h.is_closed for h in created)
-    assert client.post("/api/notion/settings", json={"notion_token": "a", "job_db": "b", "company_db": "c"}).status_code == 409
+    assert client.post("/api/v1/notion/settings", json={"notion_token": "a", "job_db": "b", "company_db": "c"}).status_code == 409
 
 
 def test_notion_settings_rejects_bad_link_without_saving(setup_client):
     client, env, _, created = setup_client
-    res = client.post("/api/notion/settings", json={"notion_token": "ntn_abc", "job_db": "4" * 32, "company_db": COMPANY_DB_ID})
+    res = client.post("/api/v1/notion/settings", json={"notion_token": "ntn_abc", "job_db": "4" * 32, "company_db": COMPANY_DB_ID})
     problem = res.json()["problems"][0]
     assert res.status_code == 400 and "채용 지원 관리 DB" in problem and "HTTP 404 object_not_found" in problem
     assert env.read_text() == "NOTION_TOKEN=\nUSE_PLAYWRIGHT=true\n"
@@ -134,7 +141,7 @@ def test_notion_settings_rejects_bad_link_without_saving(setup_client):
 ])
 def test_notion_settings_rejects_unusable_company_db(setup_client, company_db, expected):
     client, env, _, created = setup_client
-    res = client.post("/api/notion/settings", json={"notion_token": "ntn_abc", "job_db": JOB_ID, "company_db": company_db})
+    res = client.post("/api/v1/notion/settings", json={"notion_token": "ntn_abc", "job_db": JOB_ID, "company_db": company_db})
     assert res.status_code == 400 and expected in res.json()["problems"][0]
     assert env.read_text() == "NOTION_TOKEN=\nUSE_PLAYWRIGHT=true\n"
     assert all(h.is_closed for h in created)
@@ -142,7 +149,7 @@ def test_notion_settings_rejects_unusable_company_db(setup_client, company_db, e
 
 def test_notion_settings_rejects_foreign_origin(setup_client):
     client, env, _, created = setup_client
-    res = client.post("/api/notion/settings", headers={"Origin": "https://evil.example.com"},
+    res = client.post("/api/v1/notion/settings", headers={"Origin": "https://evil.example.com"},
                       json={"notion_token": "ntn_abc", "job_db": JOB_ID, "company_db": COMPANY_DB_ID})
     assert res.status_code == 403 and not created
     assert env.read_text() == "NOTION_TOKEN=\nUSE_PLAYWRIGHT=true\n"
@@ -150,7 +157,7 @@ def test_notion_settings_rejects_foreign_origin(setup_client):
 
 def test_notion_settings_rejects_newline_in_token(setup_client):
     client, _, _, _ = setup_client
-    assert client.post("/api/notion/settings", json={
+    assert client.post("/api/v1/notion/settings", json={
         "notion_token": "a\nJOB_DATA_SOURCE_ID=x", "job_db": JOB_ID, "company_db": COMPANY_DB_ID}).status_code == 422
 
 
@@ -160,14 +167,14 @@ def test_notion_settings_rejects_newline_in_token(setup_client):
 ])
 def test_notion_settings_reports_http_status(setup_client, job_db, status, text):
     client, _, _, _ = setup_client
-    res = client.post("/api/notion/settings", json={"notion_token": "ntn_abc", "job_db": job_db, "company_db": COMPANY_DB_ID})
+    res = client.post("/api/v1/notion/settings", json={"notion_token": "ntn_abc", "job_db": job_db, "company_db": COMPANY_DB_ID})
     assert res.status_code == status and text in res.json()["problems"][0]
 
 
 def test_notion_settings_warns_env_override(setup_client, monkeypatch):
     client, _, _, _ = setup_client
     monkeypatch.setenv("NOTION_TOKEN", "from-shell")
-    res = client.post("/api/notion/settings", json={"notion_token": "ntn_abc", "job_db": JOB_ID, "company_db": COMPANY_DB_ID})
+    res = client.post("/api/v1/notion/settings", json={"notion_token": "ntn_abc", "job_db": JOB_ID, "company_db": COMPANY_DB_ID})
     assert res.status_code == 200 and res.json()["warnings"] == ["NOTION_TOKEN 환경변수가 있어 재시작하면 .env 값 대신 쓰임"]
 
 
@@ -191,7 +198,7 @@ async def test_recheck_ignores_result_from_replaced_store(monkeypatch):
 def test_notion_settings_refuses_when_env_has_values(setup_client):
     client, env, _, created = setup_client
     env.write_text("NOTION_TOKEN=mine\nJOB_DATA_SOURCE_ID=\n")
-    res = client.post("/api/notion/settings", json={"notion_token": "ntn_abc", "job_db": JOB_ID, "company_db": COMPANY_DB_ID})
+    res = client.post("/api/v1/notion/settings", json={"notion_token": "ntn_abc", "job_db": JOB_ID, "company_db": COMPANY_DB_ID})
     assert res.status_code == 409 and "NOTION_TOKEN" in res.json()["problems"][0]
     assert env.read_text() == "NOTION_TOKEN=mine\nJOB_DATA_SOURCE_ID=\n" and not created
 
@@ -199,7 +206,7 @@ def test_notion_settings_refuses_when_env_has_values(setup_client):
 def test_notion_settings_overwrites_when_asked(setup_client):
     client, env, _, _ = setup_client
     env.write_text("NOTION_TOKEN=wrong\nUSE_PLAYWRIGHT=true\n")
-    res = client.post("/api/notion/settings", json={
+    res = client.post("/api/v1/notion/settings", json={
         "notion_token": "ntn_abc", "job_db": JOB_ID, "company_db": COMPANY_DB_ID, "overwrite": True})
     assert res.status_code == 200, res.text
     assert env.read_text() == (f"NOTION_TOKEN=ntn_abc\nUSE_PLAYWRIGHT=true\n"
@@ -215,7 +222,7 @@ def test_notion_settings_conflict_when_env_filled_during_check(setup_client, mon
         return await real_check(self)
 
     monkeypatch.setattr(NotionStore, "check_schema", check_then_user_edits)
-    res = client.post("/api/notion/settings", json={"notion_token": "ntn_abc", "job_db": JOB_ID, "company_db": COMPANY_DB_ID})
+    res = client.post("/api/v1/notion/settings", json={"notion_token": "ntn_abc", "job_db": JOB_ID, "company_db": COMPANY_DB_ID})
     assert res.status_code == 409 and "NOTION_TOKEN" in res.json()["problems"][0]
     assert env.read_text() == "NOTION_TOKEN=typed-meanwhile\n"
     assert all(h.is_closed for h in created)

@@ -48,7 +48,7 @@
               <summary>자세한 연결 문제 보기</summary>
               <ul>{% for problem in problems %}<li>{{ problem }}</li>{% endfor %}</ul>
             </details>
-            <form method="post" action="/api/recheck"><button class="recheck-button" type="submit">다시 점검</button></form>
+            <form method="post" action="/api/v1/recheck"><button class="recheck-button" type="submit">다시 점검</button></form>
           </div>
         </section>
         {% endif %}
