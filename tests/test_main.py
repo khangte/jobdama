@@ -25,6 +25,12 @@ def test_local_hosts_allowed():
         assert client.get("/static/app.js").status_code == 200
 
 
+def test_static_files_revalidate():
+    # 예전 app.js가 캐시에서 쓰이면 폼이 JS 없이 제출돼 JSON 화면으로 넘어간다
+    res = TestClient(app, base_url="http://localhost").get("/static/app.js")
+    assert res.headers["cache-control"] == "no-cache"
+
+
 def test_api_routes_are_versioned():
     paths = set(app.openapi()["paths"])  # Swagger에 보이는 경로
     assert {"/api/v1/jobs", "/api/v1/recheck", "/api/v1/notion/connect", "/api/v1/notion/disconnect", "/jobs", "/health"} <= paths

@@ -60,7 +60,18 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="채용공고 노션 저장", lifespan=lifespan)
 # DNS rebinding 방어: 다른 사이트 도메인으로 들어온 요청은 거절한다
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1"])
-app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
+
+
+class RevalidatedStaticFiles(StaticFiles):
+    """브라우저가 예전 app.js를 묻지 않고 재사용하지 않게 매번 ETag로 확인시킨다(바뀌지 않았으면 304)."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+app.mount("/static", RevalidatedStaticFiles(directory=BASE / "static"), name="static")
 api = APIRouter(prefix="/api/v1")  # API 경로에 버전을 붙인다. 화면(/, /jobs)과 /health는 제외
 
 
