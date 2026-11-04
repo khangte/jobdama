@@ -1,6 +1,126 @@
-// 붙여넣기 즉시 접수. 입력란은 접수 순간 비우고 포커스를 유지한다.
-// 응답을 기다리지 않으므로 여러 링크를 연달아 붙여넣어도 각각 따로 접수된다.
 (function () {
+  const status = document.getElementById("status-button");
+  const popover = document.getElementById("connection-popover");
+  const connectDialog = document.getElementById("connect-dialog");
+  const disconnectDialog = document.getElementById("disconnect-dialog");
+  const feedback = document.getElementById("notion-feedback");
+  function closePopover() {
+    if (popover) popover.hidden = true;
+    status.setAttribute("aria-expanded", "false");
+  }
+  function openConnect() {
+    document.getElementById("connect-error").hidden = true;
+    connectDialog.showModal();
+    document.getElementById("token").focus();
+  }
+  document.getElementById("connect-open")?.addEventListener("click", openConnect);
+  status.addEventListener("click", () => {
+    if (connectDialog) return openConnect();
+    popover.hidden = !popover.hidden;
+    status.setAttribute("aria-expanded", String(!popover.hidden));
+    if (!popover.hidden) document.getElementById("disconnect-open").focus();
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".status-wrap")) closePopover();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && popover && !popover.hidden) {
+      closePopover();
+      status.focus();
+    }
+  });
+  document.addEventListener("focusin", (e) => {
+    if (popover && !popover.hidden && !e.target.closest(".status-wrap")) closePopover();
+  });
+  document.getElementById("disconnect-open")?.addEventListener("click", () => {
+    closePopover();
+    document.getElementById("disconnect-error").hidden = true;
+    disconnectDialog.showModal();
+  });
+  document.querySelectorAll("[data-close]").forEach((button) => {
+    button.addEventListener("click", () => document.getElementById(button.dataset.close).close());
+  });
+  document.querySelectorAll("dialog").forEach((dialog) => {
+    dialog.addEventListener("cancel", (e) => {
+      if (dialog.querySelector('[aria-busy="true"]')) e.preventDefault();
+    });
+    dialog.addEventListener("close", () => {
+      if (dialog === connectDialog) {
+        dialog.querySelector("form").reset();
+        document.getElementById("token").type = "password";
+        const toggle = document.getElementById("token-toggle");
+        toggle.textContent = "표시";
+        toggle.setAttribute("aria-pressed", "false");
+      }
+      status.focus();
+    });
+  });
+  document.getElementById("token-toggle")?.addEventListener("click", (e) => {
+    const token = document.getElementById("token");
+    const show = token.type === "password";
+    token.type = show ? "text" : "password";
+    e.currentTarget.textContent = show ? "숨기기" : "표시";
+    e.currentTarget.setAttribute("aria-pressed", String(show));
+  });
+  document.querySelectorAll("form[data-notion-action]").forEach((notionForm) => {
+    notionForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (notionForm.getAttribute("aria-busy") === "true") return;
+      const connecting = notionForm.dataset.notionAction === "connect";
+      const errorBox = document.getElementById(connecting ? "connect-error" : "disconnect-error");
+      const values = Object.fromEntries(Array.from(new FormData(notionForm), ([key, value]) => [key, value.trim()]));
+      errorBox.hidden = true;
+      if (connecting && Object.values(values).some((value) => !value || /\s/.test(value))) {
+        errorBox.textContent = "토큰과 DB 링크 또는 ID를 공백 없이 입력해 주세요.";
+        errorBox.hidden = false;
+        errorBox.focus();
+        return;
+      }
+      const controls = notionForm.querySelectorAll("input, button");
+      const submit = notionForm.querySelector('[type="submit"]');
+      const label = submit.textContent;
+      notionForm.setAttribute("aria-busy", "true");
+      controls.forEach((control) => { control.disabled = true; });
+      submit.textContent = connecting ? "연결 확인 중…" : "해제 중…";
+      try {
+        const res = await fetch(notionForm.action, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: connecting ? JSON.stringify(values) : undefined,
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.problems?.join(" · ") || (res.status === 422
+            ? "입력값을 확인해 주세요. 토큰과 DB 링크 또는 ID는 공백 없이 입력해 주세요."
+            : "요청 실패: 서버 응답 " + res.status));
+        }
+        notionForm.reset();
+        window.location.reload();
+      } catch (error) {
+        errorBox.textContent = error instanceof TypeError ? "서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요." : error.message;
+        errorBox.hidden = false;
+        errorBox.focus();
+      } finally {
+        notionForm.removeAttribute("aria-busy");
+        controls.forEach((control) => { control.disabled = false; });
+        submit.textContent = label;
+      }
+    });
+  });
+  document.getElementById("recheck")?.addEventListener("click", async (e) => {
+    e.currentTarget.disabled = true;
+    try {
+      const res = await fetch("/api/v1/recheck", { method: "POST" });
+      if (!res.ok) throw new Error();
+      window.location.reload();
+    } catch {
+      e.target.disabled = false;
+      const error = document.getElementById("connect-error");
+      error.textContent = "연결을 점검하지 못했어요. 잠시 후 다시 시도해 주세요.";
+      error.hidden = false;
+      error.focus();
+    }
+  });
   const input = document.getElementById("url");
   const hint = document.getElementById("hint");
   const form = document.getElementById("job-form");
@@ -66,5 +186,7 @@
   });
 
   // 다른 창에서 돌아오면 바로 붙여넣을 수 있도록 포커스 복귀
-  window.addEventListener("focus", () => input.focus());
+  window.addEventListener("focus", () => {
+    if (!input.disabled && document.activeElement === document.body) input.focus();
+  });
 })();

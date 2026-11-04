@@ -3,11 +3,10 @@
   <span>이번 실행에서 접수한 공고</span>
 </div>
 {% if not jobs %}
-<div class="card empty-state">
-  <span class="empty-mark" aria-hidden="true">↗</span>
+<div class="panel empty">
   <h3>첫 번째 공고를 담아볼까요?</h3>
   <p>마음에 드는 공고 링크만 가져오세요.<br>공고 정보 정리는 잡담아가 도와드릴게요.</p>
-  <span class="empty-flow">공고 링크 → 내용 수집 → Notion 저장</span>
+  <span class="flow">공고 링크 → 내용 수집 → Notion 저장</span>
 </div>
 {% else %}
 <ol class="jobs">

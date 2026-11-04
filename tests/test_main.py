@@ -151,6 +151,32 @@ async def test_disconnect_then_reconnect_from_web(setup_client):
     assert env.read_text() == ENV_TEXT
 
 
+async def test_notion_page_follows_connection_state(setup_client):
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=main_mod.app), base_url="http://localhost") as ac:
+        page = await ac.get("/")
+        for name in ("notion_token", "job_db"):
+            assert f'name="{name}"' in page.text
+        assert 'name="company_db"' not in page.text  # 기업 DB는 채용 DB의 relation에서 찾는다
+        assert 'type="password"' in page.text
+        assert 'data-notion-action="disconnect"' not in page.text
+        assert 'disabled' in page.text
+
+        assert (await ac.post("/api/v1/notion/connect", json=VALID)).status_code == 200
+        page = await ac.get("/")
+        assert 'data-notion-action="disconnect"' in page.text
+        assert 'data-notion-action="connect"' not in page.text
+        assert 'disabled' not in page.text
+        assert VALID["notion_token"] not in page.text
+
+        assert (await ac.post("/api/v1/notion/disconnect")).status_code == 200
+        page = await ac.get("/")
+        assert 'data-notion-action="connect"' in page.text
+        assert 'data-notion-action="disconnect"' not in page.text
+        assert 'disabled' in page.text
+        assert VALID["notion_token"] not in page.text
+        await asyncio.gather(*main_mod._closing)
+
+
 def test_disconnect_rejects_foreign_origin(setup_client):
     client, _, old, _ = setup_client
     st = main_mod.app.state
