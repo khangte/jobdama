@@ -106,7 +106,7 @@ async def recheck(request: Request):
     return RedirectResponse("/", status_code=303)
 
 
-class NotionSettingsIn(BaseModel):
+class NotionConnectIn(BaseModel):
     notion_token: str
     job_db: str  # 채용 지원 관리 DB 링크 또는 ID
     company_db: str  # 관심 기업 리스트 DB 링크 또는 ID
@@ -148,8 +148,8 @@ def _close_later(service: JobService, store: NotionStore) -> None:
     task.add_done_callback(_closing.discard)
 
 
-@api.post("/notion/settings")
-async def save_notion_settings(body: NotionSettingsIn, request: Request):
+@api.post("/notion/connect")
+async def connect_notion(body: NotionConnectIn, request: Request):
     """노션 미연결 상태에서 토큰과 DB 링크를 받아 점검 후 바로 연결한다.
     메모리에만 적용하므로 .env는 그대로이고, 재시작하면 .env 값으로 연결한다."""
     if denied := _foreign_origin(request):
