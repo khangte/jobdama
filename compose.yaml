@@ -13,7 +13,7 @@ services:
     # Chromium은 /dev/shm 기본값(64MB)이 작으면 페이지가 깨질 수 있다
     shm_size: "512mb"
     volumes:
-      # 설정 파일: 웹에서 노션 설정을 저장하면 호스트 .env에 남는다.
+      # 설정 파일: 호스트 .env를 읽는다. 수정한 값은 컨테이너를 재시작하면 반영된다.
       # up 전에 cp .env.example .env로 파일을 만들어 둔다.
       # create_host_path: false로 .env가 없으면 폴더를 만들지 않고 바로 실패한다
       - type: bind

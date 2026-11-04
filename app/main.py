@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -16,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from notion_client.errors import HTTPResponseError
 from pydantic import BaseModel, field_validator
 
-from app.config import EnvValueExists, filled_env_keys, get_settings, write_env
+from app.config import get_settings
 from app.collection.fetcher import BrowserFetcher, HttpFetcher
 from app.notion_store import NotionError, NotionStore, describe_error
 from app.collection.collector import Collector
@@ -111,24 +110,27 @@ class NotionSettingsIn(BaseModel):
     notion_token: str
     job_db: str  # 채용 지원 관리 DB 링크 또는 ID
     company_db: str  # 관심 기업 리스트 DB 링크 또는 ID
-    overwrite: bool = False  # .env에 이미 있는 값을 덮어쓸지
 
     @field_validator("notion_token", "job_db", "company_db")
     @classmethod
     def single_token(cls, v: str) -> str:
         v = v.strip()
-        if not v or any(c.isspace() for c in v):  # .env 줄 주입 방지
+        if not v or any(c.isspace() for c in v):  # 토큰·링크·ID에는 공백이 없다
             raise ValueError("비어 있거나 공백이 들어 있음")
         return v
 
 
 ENV_KEYS = ("notion_token", "job_data_source_id", "company_data_source_id")
+DISCONNECTED = "노션 연결 해제됨: 웹에서 노션 설정을 입력하거나 재시작하면 .env 값으로 다시 연결"
 _closing: set[asyncio.Task] = set()  # 이전 store를 닫는 백그라운드 작업(참조를 잡아 둬야 GC되지 않는다)
 
 
-def _env_exists(keys: str) -> JSONResponse:
-    return JSONResponse({"problems": [f".env에 {keys} 값이 이미 있어 덮어쓰지 않음: 덮어쓰려면 overwrite를 켜고 다시 시도"]},
-                        status_code=409)
+def _foreign_origin(request: Request) -> JSONResponse | None:
+    """사용자가 연 다른 사이트가 보낸 요청으로 연결이 바뀌지 않게 한다."""
+    origin = request.headers.get("origin")
+    if origin and urlsplit(origin).hostname not in ("localhost", "127.0.0.1"):
+        return JSONResponse({"problems": ["다른 사이트에서 온 요청"]}, status_code=403)
+    return None
 
 
 async def _close_when_idle(service: JobService, store: NotionStore) -> None:
@@ -139,19 +141,22 @@ async def _close_when_idle(service: JobService, store: NotionStore) -> None:
         log.exception("이전 노션 연결 닫기 실패")
 
 
+def _close_later(service: JobService, store: NotionStore) -> None:
+    # 연결이 바뀌기 전에 시작된 작업이 옛 store를 쓰고 있을 수 있어, 응답은 바로 하고 작업이 끝난 뒤 닫는다
+    task = asyncio.create_task(_close_when_idle(service, store))
+    _closing.add(task)
+    task.add_done_callback(_closing.discard)
+
+
 @api.post("/notion/settings")
 async def save_notion_settings(body: NotionSettingsIn, request: Request):
-    """노션 미연결 상태에서 토큰과 DB 링크를 받아 점검 후 .env에 저장하고 바로 연결한다."""
-    origin = request.headers.get("origin")
-    # 사용자가 연 다른 사이트가 보낸 요청으로 설정이 바뀌지 않게 한다
-    if origin and urlsplit(origin).hostname not in ("localhost", "127.0.0.1"):
-        return JSONResponse({"problems": ["다른 사이트에서 온 요청"]}, status_code=403)
+    """노션 미연결 상태에서 토큰과 DB 링크를 받아 점검 후 바로 연결한다.
+    메모리에만 적용하므로 .env는 그대로이고, 재시작하면 .env 값으로 연결한다."""
+    if denied := _foreign_origin(request):
+        return denied
     s = request.app.state
     if s.service.notion_ready:
-        return JSONResponse({"problems": ["이미 노션에 연결됨"]}, status_code=409)
-    # 사용자가 .env에 직접 적은 값은 웹에서 덮어쓰지 않는다
-    if not body.overwrite and (filled := filled_env_keys(ENV_KEYS)):
-        return _env_exists(", ".join(filled))
+        return JSONResponse({"problems": ["이미 노션에 연결됨: 먼저 연결을 해제"]}, status_code=409)
     settings = s.settings.model_copy(update={"notion_token": body.notion_token})
     store = NotionStore(settings)
     swapped = False
@@ -174,11 +179,7 @@ async def save_notion_settings(body: NotionSettingsIn, request: Request):
         if problems:
             return JSONResponse({"problems": problems}, status_code=400)
         if s.service.notion_ready:  # 점검하는 사이 다른 요청이 먼저 연결함
-            return JSONResponse({"problems": ["이미 노션에 연결됨"]}, status_code=409)
-        try:
-            write_env({k: getattr(settings, k) for k in ENV_KEYS}, overwrite=body.overwrite)
-        except EnvValueExists as e:  # 노션을 확인하는 사이 사용자가 .env에 값을 적음
-            return _env_exists(str(e))
+            return JSONResponse({"problems": ["이미 노션에 연결됨: 먼저 연결을 해제"]}, status_code=409)
         old = s.store
         s.settings, s.store, s.problems = settings, store, []
         s.service.store = store
@@ -187,15 +188,24 @@ async def save_notion_settings(body: NotionSettingsIn, request: Request):
     finally:
         if not swapped:
             await store.aclose()
-    # 연결이 끊기기 전에 시작된 작업이 옛 store를 쓰고 있을 수 있어, 응답은 바로 하고 작업이 끝난 뒤 닫는다
-    task = asyncio.create_task(_close_when_idle(s.service, old))
-    _closing.add(task)
-    task.add_done_callback(_closing.discard)
-    # 셸·systemd 환경변수는 재시작할 때 .env보다 우선한다
-    keys = {k.upper() for k in ENV_KEYS}
-    overridden = sorted(k.upper() for k, v in os.environ.items() if v and k.upper() in keys)
-    warnings = [f"{k} 환경변수가 있어 재시작하면 .env 값 대신 쓰임" for k in overridden]
-    return {"notion_ready": True, **ids, "warnings": warnings}
+    _close_later(s.service, old)
+    return {"notion_ready": True, **ids}
+
+
+@api.post("/notion/disconnect")
+async def disconnect_notion(request: Request):
+    """노션 연결을 메모리에서만 끊는다. .env는 그대로라 재시작하면 다시 연결된다. 이미 끊겨 있어도 성공."""
+    if denied := _foreign_origin(request):
+        return denied
+    s = request.app.state
+    # 토큰을 비운 store로 바꿔 둔다: 다시 점검(recheck)해도 옛 토큰으로 되살아나지 않게
+    settings = s.settings.model_copy(update=dict.fromkeys(ENV_KEYS, ""))
+    old, store = s.store, NotionStore(settings)
+    s.settings, s.store, s.problems = settings, store, [DISCONNECTED]
+    s.service.store = store
+    s.service.notion_ready = False
+    _close_later(s.service, old)
+    return {"notion_ready": False}
 
 
 @app.get("/health")
