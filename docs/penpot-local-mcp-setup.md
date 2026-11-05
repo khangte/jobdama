@@ -34,7 +34,7 @@ npx -y add-mcp -g -n penpot http://localhost:4401/mcp
 pnpm 보안 차단을 우회하여 로컬 서버 엔진을 구동합니다. **새 터미널 창**을 열고 아래 명령어를 복사해서 입력하세요.
 
 ```bash
-pnpm_config_dangerously_allow_all_builds=true npx @penpot/mcp@stable
+pnpm_config_dangerously_allow_all_builds=true npx -y @penpot/mcp@stable
 ```
 
 - 💡 **중요:** 이 명령어를 입력하면 의존성 빌드가 진행된 후 서버가 대기 상태(`Server running...` 등)로 바뀝니다. **AI를 사용하는 동안 이 터미널 창은 절대 닫지 말고 그대로 켜두셔야 합니다.**
