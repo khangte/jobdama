@@ -1,0 +1,422 @@
+{
+  "schemaVersion": 2,
+  "updatedAt": "2026-11-05",
+  "fileId": "08b470c5-dda4-812a-8008-e48575502aa7",
+  "fileName": "jobdama",
+  "pages": [
+    {
+      "id": "4cc34dc4-db22-8015-8008-e484f5f10e2a",
+      "name": "01 · 데스크톱",
+      "boards": [
+        {
+          "id": "5b06dbb7-e657-57ce-ab2d-114b0f965531",
+          "name": "D01-01 · 첫 수집 / 빈 상태",
+          "width": 1440,
+          "height": 1100,
+          "x": 0,
+          "y": 0,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        },
+        {
+          "id": "0daca1b6-a5fc-5187-a49d-e51152de4c3f",
+          "name": "D01-02 · 처리 결과",
+          "width": 1440,
+          "height": 1531.5,
+          "x": 1600,
+          "y": 0,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        },
+        {
+          "id": "5a6050c4-ac6c-5963-8e24-021af790370d",
+          "name": "D01-03 · 연결 권한 오류 / 안내",
+          "width": 1440,
+          "height": 1167.15625,
+          "x": 3200,
+          "y": 0,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        },
+        {
+          "id": "55e5b2db-234a-807e-8008-e48b08524574",
+          "name": "D02-01 · 미연결",
+          "width": 1440,
+          "height": 1100,
+          "x": 0,
+          "y": 1900,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        },
+        {
+          "id": "55e5b2db-234a-807e-8008-e48b40136ff7",
+          "name": "D02-02 · 연결 정보 입력",
+          "width": 1440,
+          "height": 1100,
+          "x": 1600,
+          "y": 1900,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        },
+        {
+          "id": "55e5b2db-234a-807e-8008-e48b5709e7cd",
+          "name": "D02-03 · 연결 상태 / 팝오버",
+          "width": 1440,
+          "height": 1100,
+          "x": 3200,
+          "y": 1900,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        },
+        {
+          "id": "55e5b2db-234a-807e-8008-e48b6c80376a",
+          "name": "D02-04 · 연결 해제 / 확인",
+          "width": 1440,
+          "height": 1100,
+          "x": 0,
+          "y": 3160,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        },
+        {
+          "id": "55e5b2db-234a-807e-8008-e48b7acac399",
+          "name": "D02-05 · 연결 오류 / 입력 폼",
+          "width": 1440,
+          "height": 1100,
+          "x": 1600,
+          "y": 3160,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        },
+        {
+          "id": "0baaac6e-2d0b-809d-8008-e49ed2ab65b9",
+          "name": "D02-06 · 연결 경고 / 접힘",
+          "width": 1440,
+          "height": 1100,
+          "x": 0,
+          "y": 4420,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        },
+        {
+          "id": "0baaac6e-2d0b-809d-8008-e49ed63e57a8",
+          "name": "D02-07 · 연결 경고 / 펼침",
+          "width": 1440,
+          "height": 1100,
+          "x": 1600,
+          "y": 4420,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        }
+      ],
+      "rootGroups": 0
+    },
+    {
+      "id": "0baaac6e-2d0b-809d-8008-e4a04de13d42",
+      "name": "02 · 모바일",
+      "boards": [
+        {
+          "id": "7ec0deaf-0a65-8075-8008-e62fccf0f560",
+          "name": "M01-01 · 처리 결과",
+          "width": 390,
+          "height": 1293.25,
+          "x": 0,
+          "y": 0,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04de13d42"
+        },
+        {
+          "id": "7ec0deaf-0a65-8075-8008-e62fccf85fbb",
+          "name": "M02-01 · 미연결",
+          "width": 390,
+          "height": 960,
+          "x": 0,
+          "y": 1900,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04de13d42"
+        },
+        {
+          "id": "7ec0deaf-0a65-8075-8008-e62fccfb75ce",
+          "name": "M02-02 · 연결 정보 입력",
+          "width": 390,
+          "height": 960,
+          "x": 490,
+          "y": 1900,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04de13d42"
+        },
+        {
+          "id": "7ec0deaf-0a65-8075-8008-e62fcd0013bf",
+          "name": "M02-03 · 연결 상태 / 팝오버",
+          "width": 390,
+          "height": 960,
+          "x": 980,
+          "y": 1900,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04de13d42"
+        },
+        {
+          "id": "7ec0deaf-0a65-8075-8008-e62fcd022ff0",
+          "name": "M02-04 · 연결 해제 / 확인",
+          "width": 390,
+          "height": 960,
+          "x": 1470,
+          "y": 1900,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04de13d42"
+        },
+        {
+          "id": "7ec0deaf-0a65-8075-8008-e62fcd048421",
+          "name": "M02-05 · 연결 경고 / 접힘",
+          "width": 390,
+          "height": 960,
+          "x": 0,
+          "y": 3160,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04de13d42"
+        },
+        {
+          "id": "7ec0deaf-0a65-8075-8008-e62fcd07ae9e",
+          "name": "M02-06 · 연결 경고 / 펼침",
+          "width": 390,
+          "height": 960,
+          "x": 490,
+          "y": 3160,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04de13d42"
+        }
+      ],
+      "rootGroups": 0
+    },
+    {
+      "id": "0baaac6e-2d0b-809d-8008-e4a04deb3166",
+      "name": "03 · 컴포넌트",
+      "boards": [
+        {
+          "id": "7ec0deaf-0a65-8075-8008-e6318d2d0c03",
+          "name": "C01-01 · 헤더 / 데스크톱 / 연결됨",
+          "width": 1440,
+          "height": 88,
+          "x": 0,
+          "y": 0,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04deb3166"
+        },
+        {
+          "id": "7ec0deaf-0a65-8075-8008-e6318d625eb2",
+          "name": "C02-01 · 링크 입력 / 데스크톱 / 대기",
+          "width": 908,
+          "height": 186,
+          "x": 0,
+          "y": 400,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04deb3166"
+        },
+        {
+          "id": "7ec0deaf-0a65-8075-8008-e6318d9a8745",
+          "name": "C02-02 · 수집 안내 / 데스크톱",
+          "width": 348,
+          "height": 683,
+          "x": 1100,
+          "y": 400,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04deb3166"
+        },
+        {
+          "id": "7ec0deaf-0a65-8075-8008-e6318e5ed5bb",
+          "name": "C03-01 · 빈 상태 / 첫 수집",
+          "width": 908,
+          "height": 345,
+          "x": 0,
+          "y": 1400,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04deb3166"
+        },
+        {
+          "id": "7ec0deaf-0a65-8075-8008-e631e3d96189",
+          "name": "C03-02 · 결과 카드 / 상태 모음",
+          "width": 970,
+          "height": 1589,
+          "x": 1100,
+          "y": 1400,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04deb3166"
+        }
+      ],
+      "rootGroups": 0
+    },
+    {
+      "id": "0baaac6e-2d0b-809d-8008-e4a04dee3153",
+      "name": "90 · 보관함",
+      "boards": [],
+      "rootGroups": 0
+    }
+  ],
+  "currentComponents": [
+    {
+      "id": "7ec0deaf-0a65-8075-8008-e6318d58e4fb",
+      "name": "연결됨",
+      "path": "C01-01 · 헤더 / 데스크톱",
+      "mainId": "7ec0deaf-0a65-8075-8008-e6318d2d0c03",
+      "isVariant": false
+    },
+    {
+      "id": "7ec0deaf-0a65-8075-8008-e6318d91e2c7",
+      "name": "대기",
+      "path": "C02-01 · 링크 입력 / 데스크톱",
+      "mainId": "7ec0deaf-0a65-8075-8008-e6318d625eb2",
+      "isVariant": false
+    },
+    {
+      "id": "7ec0deaf-0a65-8075-8008-e6318e4d0bb1",
+      "name": "데스크톱",
+      "path": "C02-02 · 수집 안내",
+      "mainId": "7ec0deaf-0a65-8075-8008-e6318d9a8745",
+      "isVariant": false
+    },
+    {
+      "id": "7ec0deaf-0a65-8075-8008-e6318e7a13d1",
+      "name": "첫 수집",
+      "path": "C03-01 · 빈 상태",
+      "mainId": "7ec0deaf-0a65-8075-8008-e6318e5ed5bb",
+      "isVariant": false
+    },
+    {
+      "id": "7ec0deaf-0a65-8075-8008-e6318f13e591",
+      "name": "상태 모음",
+      "path": "C03-02 · 결과 카드",
+      "mainId": "7ec0deaf-0a65-8075-8008-e6318e8531ff",
+      "isVariant": true,
+      "variantProps": {
+        "Status": "부분 저장",
+        "Viewport": "Mobile"
+      }
+    },
+    {
+      "id": "7ec0deaf-0a65-8075-8008-e631e16f9f0c",
+      "name": "상태 모음",
+      "path": "C03-02 · 결과 카드",
+      "mainId": "7ec0deaf-0a65-8075-8008-e631e15708b9",
+      "isVariant": true,
+      "variantProps": {
+        "Status": "저장 완료",
+        "Viewport": "Mobile"
+      }
+    },
+    {
+      "id": "7ec0deaf-0a65-8075-8008-e631e186d027",
+      "name": "상태 모음",
+      "path": "C03-02 · 결과 카드",
+      "mainId": "7ec0deaf-0a65-8075-8008-e631e1795a1a",
+      "isVariant": true,
+      "variantProps": {
+        "Status": "수집 중",
+        "Viewport": "Mobile"
+      }
+    },
+    {
+      "id": "7ec0deaf-0a65-8075-8008-e631e1968a5d",
+      "name": "상태 모음",
+      "path": "C03-02 · 결과 카드",
+      "mainId": "7ec0deaf-0a65-8075-8008-e631e18a8b99",
+      "isVariant": true,
+      "variantProps": {
+        "Status": "입력 오류",
+        "Viewport": "Desktop"
+      }
+    },
+    {
+      "id": "7ec0deaf-0a65-8075-8008-e631e1ae36c6",
+      "name": "상태 모음",
+      "path": "C03-02 · 결과 카드",
+      "mainId": "7ec0deaf-0a65-8075-8008-e631e19d8d1e",
+      "isVariant": true,
+      "variantProps": {
+        "Status": "저장 실패",
+        "Viewport": "Desktop"
+      }
+    },
+    {
+      "id": "7ec0deaf-0a65-8075-8008-e631e1c63c96",
+      "name": "상태 모음",
+      "path": "C03-02 · 결과 카드",
+      "mainId": "7ec0deaf-0a65-8075-8008-e631e1b6d306",
+      "isVariant": true,
+      "variantProps": {
+        "Status": "수집 실패",
+        "Viewport": "Desktop"
+      }
+    },
+    {
+      "id": "7ec0deaf-0a65-8075-8008-e631e1de4456",
+      "name": "상태 모음",
+      "path": "C03-02 · 결과 카드",
+      "mainId": "7ec0deaf-0a65-8075-8008-e631e1cf05b8",
+      "isVariant": true,
+      "variantProps": {
+        "Status": "이미 있음",
+        "Viewport": "Desktop"
+      }
+    },
+    {
+      "id": "7ec0deaf-0a65-8075-8008-e631e1f8f5e1",
+      "name": "상태 모음",
+      "path": "C03-02 · 결과 카드",
+      "mainId": "7ec0deaf-0a65-8075-8008-e631e1e83063",
+      "isVariant": true,
+      "variantProps": {
+        "Status": "부분 저장",
+        "Viewport": "Desktop"
+      }
+    },
+    {
+      "id": "7ec0deaf-0a65-8075-8008-e631e215f62a",
+      "name": "상태 모음",
+      "path": "C03-02 · 결과 카드",
+      "mainId": "7ec0deaf-0a65-8075-8008-e631e203d6f8",
+      "isVariant": true,
+      "variantProps": {
+        "Status": "저장 완료",
+        "Viewport": "Desktop"
+      }
+    },
+    {
+      "id": "7ec0deaf-0a65-8075-8008-e631e22b6a81",
+      "name": "상태 모음",
+      "path": "C03-02 · 결과 카드",
+      "mainId": "7ec0deaf-0a65-8075-8008-e631e21d7598",
+      "isVariant": true,
+      "variantProps": {
+        "Status": "수집 중",
+        "Viewport": "Desktop"
+      }
+    }
+  ],
+  "archivedOrphanComponents": 10,
+  "verification": {
+    "mobileContent": true,
+    "componentContent": true,
+    "mobileReferences": true,
+    "desktopReferences": true,
+    "fileIntegrityErrors": 0,
+    "mobileRenderChecked": true,
+    "desktopPrototypeLinks": 16,
+    "mobilePrototypeLinks": 13,
+    "variantProperties": [
+      "Status",
+      "Viewport"
+    ],
+    "variantCount": 10
+  },
+  "savedVersions": [
+    {
+      "label": "internal/snapshot/35",
+      "createdAt": "Thu Nov 05 2026 21:43:10 GMT+0900 (한국 표준시)"
+    },
+    {
+      "label": "internal/snapshot/30",
+      "createdAt": "Thu Nov 05 2026 21:32:29 GMT+0900 (한국 표준시)"
+    },
+    {
+      "label": "internal/snapshot/27",
+      "createdAt": "Thu Nov 05 2026 21:23:32 GMT+0900 (한국 표준시)"
+    },
+    {
+      "label": "internal/snapshot/26",
+      "createdAt": "Thu Nov 05 2026 01:14:50 GMT+0900 (한국 표준시)"
+    },
+    {
+      "label": "internal/snapshot/25",
+      "createdAt": "Wed Nov 04 2026 16:34:48 GMT+0900 (한국 표준시)"
+    },
+    {
+      "label": "internal/snapshot/20",
+      "createdAt": "Wed Nov 04 2026 16:17:20 GMT+0900 (한국 표준시)"
+    }
+  ],
+  "connection": {
+    "mode": "local",
+    "serverUrl": "http://localhost:4401/mcp",
+    "npmPackageVersion": "2.15.4",
+    "penpotVersion": "2.19.0",
+    "versionWarning": true
+  }
+}
