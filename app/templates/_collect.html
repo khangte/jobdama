@@ -1,0 +1,65 @@
+<div id="collect" class="collect-stack" hx-get="/collect/results?status={{ status }}" hx-trigger="{% if running %}every 2s, {% endif %}collect-started from:body" hx-swap="outerHTML">
+  <section class="panel collect-status" aria-label="수집 상태">
+    <div>
+      {% if running %}<strong>수집 중이에요</strong><p>사이트를 하나씩 확인하고 있어요. 지금까지 {{ counts.all }}건을 처리했어요.</p>
+      {% elif run %}<strong>마지막 실행 {{ run.started_at[:16].replace('T', ' ') }}</strong><p>실행 방식 {{ '화면' if run.trigger == 'screen' else '스케줄' }}{% if run.finished_at %} · 완료 {{ run.finished_at[11:16] }}{% endif %}{% if run.error %} · 실행 오류: {{ run.error }}{% endif %}</p>
+      {% else %}<strong>아직 실행 기록이 없어요.</strong><p>수집 실행을 누르거나 스케줄을 등록하세요.</p>{% endif %}
+    </div>
+    {% if running %}<span class="state-chip">진행 중</span>{% endif %}{% if run and run.dry_run %}<span class="state-chip preview">미리보기</span>{% endif %}
+  </section>
+  {% if not notion_ready %}<section class="notice" role="status">Notion을 연결해야 수집할 수 있어요.<a href="/">메인에서 연결하기 →</a></section>{% endif %}
+  <section class="panel run-panel" aria-label="수집 실행">
+    <div><h2>수집 실행</h2><p>위 조건으로 지금 공고를 확인해요.</p></div>
+    <form id="collect-form" class="run-controls">
+      <label class="preview-check"><input type="checkbox" name="dry_run"{% if running %} disabled{% if run and run.dry_run %} checked{% endif %}{% endif %}>미리보기 (Notion에 저장하지 않음)</label>
+      <button class="primary" type="submit" id="collect-run"{% if running or not notion_ready %} disabled{% endif %}>수집 실행</button>
+    </form>
+    <p class="error" id="collect-error" role="alert" hidden></p>
+  </section>
+  {% if run and run.sites %}
+  <section class="panel collect-summary" aria-label="사이트별 집계">
+    <h2 class="section-title">사이트별 집계</h2>
+    <table class="summary-table"><thead><tr><th>사이트</th><th>후보</th><th>저장</th><th>이미 있음</th><th>제외</th><th>실패</th></tr></thead><tbody>
+      {% for site in run.sites %}
+      <tr><td>{{ site.name }}</td><td>{{ site.candidates }}</td><td>{{ site.saved }}</td><td>{{ site.exists }}</td><td>{{ site.skipped }}</td><td>{{ site.failed }}</td></tr>
+      {% if site.error %}<tr><td colspan="6" class="site-error">{{ site.name }} · {{ site.error }}</td></tr>{% endif %}
+      {% endfor %}
+      <tr class="total"><td>합계</td>{% for key in ('candidates', 'saved', 'exists', 'skipped', 'failed') %}<td>{{ run.sites|sum(attribute=key) }}</td>{% endfor %}</tr>
+    </tbody></table>
+    <div class="summary-cards">
+      {% for site in run.sites %}
+      <div class="summary-card"><strong>{{ site.name }}</strong><dl><div><dt>후보</dt><dd>{{ site.candidates }}</dd></div><div><dt>저장</dt><dd>{{ site.saved }}</dd></div><div><dt>이미 있음</dt><dd>{{ site.exists }}</dd></div><div><dt>제외</dt><dd>{{ site.skipped }}</dd></div><div><dt>실패</dt><dd>{{ site.failed }}</dd></div></dl>{% if site.error %}<p class="site-error">{{ site.error }}</p>{% endif %}</div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+  <section class="collect-results" aria-label="공고별 결과">
+    <div class="results-heading"><h2>공고별 결과 {% if run %}<span class="count">{{ counts.all }}</span>{% endif %}</h2></div>
+    {% if not run and not running %}
+    <div class="panel empty-collect"><h3>아직 실행 기록이 없어요.</h3><p>수집 실행을 누르거나 스케줄을 등록하세요.</p></div>
+    {% else %}
+    <nav class="filter-list" aria-label="결과 필터">
+      {% for key, label in filters %}<a href="/collect?status={{ key }}" hx-get="/collect/results?status={{ key }}" hx-target="#collect" hx-swap="outerHTML" hx-push-url="/collect?status={{ key }}"{% if key == status %} class="selected" aria-current="page"{% endif %}>{{ label }} {{ counts[key] }}</a>{% endfor %}
+    </nav>
+    <ol class="jobs">
+      {% if running %}<li class="card job"><span class="company-mark" aria-hidden="true">↗</span><div class="job-body"><div class="job-heading"><h3 class="job-title">공고 정보를 가져오고 있어요</h3><span class="badge processing">수집 중</span></div><p class="job-message">공고 내용을 확인하는 중이에요. 잠시만 기다려 주세요.</p></div></li>{% endif %}
+      {% for item in items %}
+      <li class="card job {{ item.css }}">
+        <span class="company-mark" aria-hidden="true">{{ item.title.lstrip('[')[:1] }}</span>
+        <div class="job-body">
+          <div class="job-heading"><h3 class="job-title">{{ item.title }}</h3><span class="badge {{ item.css }}">{{ item.status }}</span></div>
+          <p class="job-message">{% if item.message %}{{ item.message }}{% elif item.css == 'preview' %}미리보기에서 선별 조건을 통과했어요. Notion에는 저장하지 않았어요.{% endif %}</p>
+          <div class="job-meta"><span class="site-label">{{ site_names.get(item.site, item.site) }}</span>
+            <div class="job-links">
+              {% if item.notion_url %}<a class="notion-link" href="{{ item.notion_url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ item.title }} Notion 열기 (새 창)">Notion 열기 <span aria-hidden="true">↗</span></a>{% endif %}
+              <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ item.title }} 원문 (새 창)">원문 <span aria-hidden="true">↗</span></a>
+            </div>
+          </div>
+        </div>
+      </li>
+      {% else %}{% if not running %}<li class="panel empty-collect"><p>해당하는 공고가 없어요.</p></li>{% endif %}
+      {% endfor %}
+    </ol>
+    {% endif %}
+  </section>
+</div>

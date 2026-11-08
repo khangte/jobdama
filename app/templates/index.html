@@ -14,7 +14,7 @@
 <a class="skip-link" href="#url">공고 입력으로 건너뛰기</a>
 <header class="topbar">
   <a class="brand" href="/" aria-label="잡담아 홈"><span class="brand-mark">jd.</span><div class="brand-name">잡담아<small>JOBDAMA</small></div></a>
-  <nav class="nav" aria-label="주 메뉴"><span>공고 담기</span><div class="status-wrap">
+  <nav class="nav" aria-label="주 메뉴"><a href="/" aria-current="page">공고 담기</a><a href="/collect">자동 수집</a></nav><div class="status-wrap">
     <button class="status-button{% if not problems %} connected{% endif %}" id="status-button" data-connected="{{ 'false' if problems else 'true' }}" aria-expanded="false" aria-haspopup="dialog" aria-controls="{{ 'connect-dialog' if problems else 'connection-popover' }}"><span class="dot"></span><span id="status-label">{% if problems %}Notion 미연결{% else %}Notion 연결됨{% endif %}</span><span class="chevron" aria-hidden="true">⌄</span></button>
     {% if not problems %}<section class="popover" id="connection-popover" role="dialog" aria-label="Notion 연결 정보" hidden>
       <h2>Notion 연결</h2><p class="connected-copy">연결이 정상적으로 작동하고 있어요</p>
@@ -22,7 +22,7 @@
       {% if warnings %}<details class="advanced connection-problems"><summary>비워 두는 열 {{ warnings|length }}개</summary><ul>{% for warning in warnings %}<li>{{ warning }}</li>{% endfor %}</ul><p class="popover-note">Notion에서 열 이름을 바꾼 뒤 다시 점검하면 반영돼요.</p><button class="secondary" type="button" id="recheck">다시 점검</button></details>{% endif %}
       <button class="disconnect-link" id="disconnect-open">연결 해제</button><p class="popover-note">저장한 공고는 Notion에 그대로 남아요.</p>
     </section>{% endif %}
-  </div></nav>
+  </div>
 </header>
 <main class="workspace">
   <p class="eyebrow">COLLECT YOUR NEXT OPPORTUNITY</p><h1>발견한 기회,<br>여기에 담아두세요.</h1>

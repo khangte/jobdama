@@ -1,4 +1,6 @@
 (function () {
+  let saveSettings = null;  // 조건 폼이 있는 화면에서 아래 설정 블록이 채운다
+  let settingsDirty = () => false;
   const status = document.getElementById("status-button");
   const popover = document.getElementById("connection-popover");
   const connectDialog = document.getElementById("connect-dialog");
@@ -16,9 +18,10 @@
   document.getElementById("connect-open")?.addEventListener("click", openConnect);
   status.addEventListener("click", () => {
     if (connectDialog) return openConnect();
+    if (!popover) { location.href = "/"; return; }  // 수집 화면에서 미연결이면 메인에서 연결
     popover.hidden = !popover.hidden;
     status.setAttribute("aria-expanded", String(!popover.hidden));
-    if (!popover.hidden) document.getElementById("disconnect-open").focus();
+    if (!popover.hidden) document.getElementById("disconnect-open")?.focus();
   });
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".status-wrap")) closePopover();
@@ -121,6 +124,189 @@
       error.focus();
     }
   });
+  // #collect는 htmx가 통째로 교체하므로, 폼에 직접 달지 않고 문서에서 받아 이벤트의 현재 폼을 쓴다
+  let collectPending = false;
+  document.addEventListener("submit", async (e) => {
+    const collectForm = e.target.closest("#collect-form");
+    if (!collectForm) return;
+    e.preventDefault();
+    const runButton = document.getElementById("collect-run");
+    if (collectPending || runButton.disabled) return;
+    collectPending = true;
+    const dryRun = collectForm.elements.dry_run.checked;
+    let started = false;
+    let errorMessage = "";
+    document.getElementById("collect-error").hidden = true;
+    runButton.disabled = true;
+    try {
+      if (settingsDirty() && !(await saveSettings())) {
+        errorMessage = "조건을 저장하지 못해 수집을 시작하지 않았어요.";
+      } else {
+        const res = await fetch("/api/v1/collect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dry_run: dryRun, trigger: "screen" }),
+        });
+        if (res.status === 202) {
+          started = true;  // 조각 교체가 버튼 상태를 정한다
+          return window.htmx && htmx.trigger(document.body, "collect-started");
+        }
+        errorMessage = { 409: "이미 수집 중이에요.", 503: "Notion이 연결되지 않았어요." }[res.status] || "요청 실패: 서버 응답 " + res.status;
+      }
+    } catch {
+      errorMessage = "서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.";
+    } finally {
+      collectPending = false;
+      // 새 조각의 실행 중·미연결 상태는 유지하고, 직접 잠근 원래 버튼만 복구한다.
+      if (!started && document.getElementById("collect-run") === runButton) runButton.disabled = false;
+    }
+    // 저장·실행을 기다리는 동안 필터나 폴링으로 교체된 현재 조각에 표시한다.
+    const error = document.getElementById("collect-error");
+    if (error) {
+      error.textContent = errorMessage;
+      error.hidden = false;
+    }
+  });
+  const settingsForm = document.getElementById("settings-form");
+  if (settingsForm) {
+    const SELECTS = ["job", "region", "career", "education", "employment", "salary", "sort"];
+    const WORDS = ["title_exclude_words", "body_signal_words"];
+    const summary = document.getElementById("settings-error");
+    const success = document.getElementById("settings-success");
+    const note = document.getElementById("settings-status");
+    const field = (name) => settingsForm.elements[name];
+    const words = (text) => text.split(/[\n,]/).map((w) => w.trim()).filter(Boolean);
+
+    function clearErrors() {
+      // 이전 저장의 필드 오류와 결과 안내를 비운다.
+      summary.hidden = success.hidden = true;
+      note.textContent = "";
+      settingsForm.querySelectorAll(".field-error").forEach((el) => { el.hidden = true; el.textContent = ""; });
+      settingsForm.querySelectorAll("[aria-invalid]").forEach((el) => { el.removeAttribute("aria-invalid"); el.removeAttribute("aria-describedby"); });
+    }
+
+    function fill(cfg) {
+      // 저장된 조건이나 기본값을 입력 요소에 채운다.
+      settingsForm.querySelectorAll('input[name="sites"]').forEach((box) => { box.checked = cfg.sites.includes(box.value); });
+      field("keyword").value = cfg.keyword;
+      field("max_per_site").value = cfg.max_per_site;
+      SELECTS.forEach((name) => { field(name).value = cfg[name]; });
+      WORDS.forEach((name) => { field(name).value = cfg[name].join("\n"); });
+    }
+
+    function payload() {
+      // 화면의 입력값을 설정 API 본문으로 만든다.
+      const body = {
+        sites: [...settingsForm.querySelectorAll('input[name="sites"]:checked')].map((box) => box.value),
+        keyword: field("keyword").value,
+        max_per_site: field("max_per_site").value,  // 문자열 그대로 보내 2.5·2e1도 서버가 거른다
+      };
+      SELECTS.forEach((name) => { body[name] = field(name).value; });
+      WORDS.forEach((name) => { body[name] = words(field(name).value); });
+      return body;
+    }
+
+    function showFieldError(name, message) {
+      // 필드 오류 문구와 접근성 속성을 함께 표시한다.
+      const box = document.getElementById("err-" + name);
+      if (!box) return false;
+      box.textContent = message;
+      box.hidden = false;
+      const target = name === "sites" ? document.getElementById("sites-field") : field(name);
+      target.setAttribute("aria-invalid", "true");
+      target.setAttribute("aria-describedby", box.id);
+      return true;
+    }
+
+    function showSummary(message) {
+      // 저장 실패 요약을 알림 영역에 표시한다.
+      summary.textContent = message;
+      summary.hidden = false;
+    }
+
+    let baseline = JSON.stringify(payload());  // 마지막으로 불러오거나 저장한 값
+
+    function refreshWords() {
+      // 접힌 영역에서도 현재 단어 개수를 확인하게 한다.
+      const title = words(field("title_exclude_words").value).length;
+      const body = words(field("body_signal_words").value).length;
+      document.getElementById("words-counts").textContent =
+        `공고명 제외 ${title}개 · ${body ? `본문 신호 ${body}개` : "본문 신호 검사 안 함"}`;
+    }
+
+    let saving = null;
+    async function persistSettings() {
+      // 저장 중 입력을 잠가 응답이 새 입력을 덮지 않게 하고 성공 여부를 반환한다.
+      clearErrors();
+      const controls = settingsForm.querySelectorAll("input, select, textarea, button");
+      const body = JSON.stringify(payload());
+      settingsForm.setAttribute("aria-busy", "true");
+      controls.forEach((control) => { control.disabled = true; });
+      try {
+        const res = await fetch("/api/v1/collect/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body,
+        });
+        const data = (res.ok || res.status === 422) ? await res.json() : null;
+        controls.forEach((control) => { control.disabled = false; });
+        if (res.ok) {
+          fill(data.settings);
+          baseline = JSON.stringify(payload());
+          refreshWords();
+          document.getElementById("settings-problem")?.remove();
+          success.hidden = false;
+          note.textContent = "저장했어요. 다음 수집부터 적용돼요.";
+          return true;
+        }
+        if (res.status === 422) {
+          const detail = data.detail || [];
+          detail.forEach((d) => { showFieldError(d.type, d.msg) || showFieldError(d.loc[d.loc.length - 1], d.msg); });
+          showSummary("입력값을 확인하세요.");
+          const first = settingsForm.querySelector('[aria-invalid="true"]');
+          if (first) {
+            // 첫 오류가 접힌 칸 밖에 있어도 안쪽 오류가 가려지지 않게 연다
+            if (settingsForm.querySelector('#words-details [aria-invalid="true"]')) document.getElementById("words-details").open = true;
+            (first.matches("fieldset") ? first.querySelector("input") : first).focus();
+          }
+        } else {
+          showSummary({ 403: "다른 사이트에서 온 요청이라 저장하지 않았어요.", 500: "설정을 저장하지 못했어요." }[res.status] || "요청 실패: 서버 응답 " + res.status);
+        }
+      } catch {
+        showSummary("서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.");
+      } finally {
+        controls.forEach((control) => { control.disabled = false; });
+        settingsForm.removeAttribute("aria-busy");
+      }
+      return false;
+    }
+    saveSettings = () => {
+      // 저장과 실행이 겹쳐도 진행 중인 저장 하나의 결과를 함께 기다린다.
+      if (!saving) saving = persistSettings().finally(() => { saving = null; });
+      return saving;
+    };
+    settingsDirty = () => JSON.stringify(payload()) !== baseline;
+
+    settingsForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      saveSettings();
+    });
+    const onEdit = () => {
+      refreshWords();
+      success.hidden = true;
+      note.textContent = settingsDirty() ? "저장하지 않은 변경이 있어요. 수집 실행 시 함께 저장돼요." : "";
+    };
+    settingsForm.addEventListener("input", onEdit);
+    settingsForm.addEventListener("change", onEdit);
+
+    document.getElementById("defaults-button").addEventListener("click", () => {
+      clearErrors();
+      fill(JSON.parse(document.getElementById("settings-defaults").textContent));
+      refreshWords();
+      note.textContent = "기본값을 불러왔어요. 저장해야 적용돼요.";
+    });
+  }
+  if (!document.getElementById("job-form")) return;  // 아래는 공고 붙여넣기 화면 전용
   const input = document.getElementById("url");
   const hint = document.getElementById("hint");
   const form = document.getElementById("job-form");

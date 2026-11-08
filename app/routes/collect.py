@@ -6,7 +6,7 @@ import logging
 from typing import Literal
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from starlette.datastructures import State
 
@@ -86,6 +86,12 @@ async def collect_page(request: Request, s: StateDep, status: str = "all"):
     form = {"config": s.collect.config.model_dump(), "defaults": CollectConfig().model_dump(), "problem": s.collect.config_problem,
             "choices": {**CHOICES, "sites": list(SITE_NAMES.items())}}
     return templates.TemplateResponse(request, "collect.html", {**_collect_context(s, status), **form})
+
+
+@pages.get("/collect/settings", include_in_schema=False)
+async def collect_settings_page():
+    """옛 설정 화면 주소. 조건 폼이 있는 수집 화면으로 보낸다."""
+    return RedirectResponse("/collect#settings-form", status_code=307)
 
 
 @pages.get("/collect/results", response_class=HTMLResponse)

@@ -542,6 +542,14 @@ async def test_collect_form_words(collect_client):
     assert {v: sel for v, _, sel in _select(html, "salary")}["4000"]
 
 
+async def test_collect_settings_redirects(collect_client):
+    """예전 /collect/settings 주소는 /collect의 설정 폼으로 307 이동한다."""
+    client, _, _ = collect_client(sources=())
+    async with client:
+        res = await client.get("/collect/settings", follow_redirects=False)
+    assert res.status_code == 307 and res.headers["location"] == "/collect#settings-form"
+
+
 async def test_collect_page_ignores_wrong_shape_result_file(collect_client, tmp_path):
     (tmp_path / "data").mkdir()
     (tmp_path / "data" / "last.json").write_text('{"items": []}')

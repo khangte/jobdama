@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>잡담아 · 자동 수집</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/htmx.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+{% macro pick(name, label, hint) %}
+<div class="field"><label for="{{ name }}">{{ label }}</label><select id="{{ name }}" name="{{ name }}">{% for value, text in choices[name].items() %}<option value="{{ value }}"{% if value == config[name] %} selected{% endif %}>{{ text }}</option>{% endfor %}</select><small class="field-hint">{{ hint }}</small><p class="field-error" id="err-{{ name }}" hidden></p></div>
+{% endmacro %}
+<a class="skip-link" href="#settings-form">수집 조건으로 건너뛰기</a>
+<a class="skip-link" href="#collect-run">수집 실행으로 건너뛰기</a>
+<header class="topbar">
+  <a class="brand" href="/" aria-label="잡담아 홈"><span class="brand-mark">jd.</span><div class="brand-name">잡담아<small>JOBDAMA</small></div></a>
+  <nav class="nav" aria-label="주 메뉴"><a href="/">공고 담기</a><a href="/collect" aria-current="page">자동 수집</a></nav>
+  <div class="status-wrap">
+    <button class="status-button{% if notion_ready %} connected{% endif %}" id="status-button" data-connected="{{ 'true' if notion_ready else 'false' }}" aria-expanded="false"{% if notion_ready %} aria-haspopup="dialog" aria-controls="connection-popover"{% endif %}><span class="dot"></span><span id="status-label">{% if notion_ready %}Notion 연결됨{% else %}Notion 미연결{% endif %}</span><span class="chevron" aria-hidden="true">⌄</span></button>
+    {% if notion_ready %}<section class="popover" id="connection-popover" role="dialog" aria-label="Notion 연결 정보" hidden>
+      <h2>Notion 연결</h2><p class="connected-copy">연결이 정상적으로 작동하고 있어요</p>
+      <p class="popover-note">연결·해제는 <a href="/">메인 화면</a>에서 해요.</p>
+    </section>{% endif %}
+  </div>
+</header>
+<main class="collect-workspace">
+  <p class="eyebrow">COLLECT YOUR NEXT OPPORTUNITY</p><h1>자동 수집</h1>
+  <p class="subtitle">매일 정해진 사이트에서 조건에 맞는 공고만 골라 Notion에 담아요.</p>
+  <form class="settings-form" id="settings-form" aria-labelledby="settings-heading" autocomplete="off" novalidate>
+    <div class="settings-intro">
+      <h2 id="settings-heading">수집 조건</h2>
+      <p class="settings-lead">저장하면 다음 수집부터 적용돼요. 수집 실행을 누르면 바뀐 조건을 먼저 저장해요.</p>
+    </div>
+    {% if problem %}<p class="settings-banner warn" id="settings-problem" role="status">{{ problem }}</p>{% endif %}
+    <p class="settings-banner error-summary" id="settings-error" role="alert" hidden></p>
+    <p class="settings-banner success" id="settings-success" hidden>저장했어요. 다음 수집부터 적용돼요.</p>
+    <section class="panel settings-panel sites-panel" aria-labelledby="sites-heading">
+      <h3 id="sites-heading">찾을 곳</h3>
+      <div class="site-row">
+        <div class="field site-field"><fieldset id="sites-field"><legend>대상 사이트</legend><div class="chip-list">
+          {% for key, name in choices.sites %}<label class="site-chip"><input type="checkbox" name="sites" value="{{ key }}"{% if key in config.sites %} checked{% endif %}><span class="chip-mark" aria-hidden="true">✓</span>{{ name }}</label>
+          {% endfor %}
+        </div></fieldset><p class="field-error" id="err-sites" hidden></p></div>
+        <div class="field max-field"><label for="max_per_site">사이트별 최대 후보</label><input id="max_per_site" name="max_per_site" type="number" min="1" max="40" value="{{ config.max_per_site }}"><small class="field-hint">사이트마다 앞에서부터 이만큼만 확인해요. (1~40)</small><p class="field-error" id="err-max_per_site" hidden></p></div>
+      </div>
+    </section>
+    <section class="panel settings-panel search-panel" aria-labelledby="search-heading">
+      <h3 id="search-heading">검색 조건</h3>
+      <div class="search-grid">
+        <div class="field"><label for="keyword">검색어</label><input id="keyword" name="keyword" type="text" value="{{ config.keyword }}" autocomplete="off"><small class="field-hint">비워 두면 검색어 없이 찾아요. 원티드는 공고 제목에서만 찾아요.</small><p class="field-error" id="err-keyword" hidden></p></div>
+        {{ pick("job", "직무", "사이트마다 가장 가까운 직무 분류로 찾아요. 인크루트는 IT개발·데이터 전체로 찾아요.") }}
+        {{ pick("region", "근무지", "잡코리아·인크루트와 원티드의 서울·경기 밖 지역은 받은 뒤 주소로 걸러요. 시·도 없이 구만 적힌 주소는 통과시켜요.") }}
+        {{ pick("career", "경력", "이보다 높은 경력을 요구하는 공고는 제외해요.") }}
+        {{ pick("education", "학력", "원티드·점핏에는 적용되지 않아요.") }}
+        {{ pick("employment", "고용형태", "원티드·점핏은 받은 뒤 공고의 고용형태로 걸러요.") }}
+        {{ pick("salary", "연봉", "사람인·잡코리아에만 적용돼요. 회사 내규인 공고는 빠질 수 있어요.") }}
+        {{ pick("sort", "정렬", "사이트에 없는 정렬은 사이트 기본 순서로 받아요.") }}
+      </div>
+    </section>
+      <details class="panel settings-panel words-details" id="words-details">
+        <summary id="words-summary"><span class="words-title">거르는 단어</span><span class="words-counts" id="words-counts">공고명 제외 {{ config.title_exclude_words|length }}개 · {% if config.body_signal_words %}본문 신호 {{ config.body_signal_words|length }}개{% else %}본문 신호 검사 안 함{% endif %}</span></summary>
+        <div class="words-grid">
+          <div class="field"><label for="title_exclude_words">공고명 제외 단어</label><textarea id="title_exclude_words" name="title_exclude_words">{{ config.title_exclude_words|join("\n") }}</textarea><small class="field-hint">한 줄에 하나씩. 공고명에 들어 있으면 제외해요. 대소문자는 가리지 않아요.</small><p class="field-error" id="err-title_exclude_words" hidden></p></div>
+          <div class="field"><label for="body_signal_words">본문 필수 신호</label><textarea id="body_signal_words" name="body_signal_words">{{ config.body_signal_words|join("\n") }}</textarea><small class="field-hint">한 줄에 하나씩. 본문에 하나도 없으면 제외해요. 비워 두면 검사하지 않아요.</small><p class="field-error" id="err-body_signal_words" hidden></p></div>
+        </div>
+      </details>
+      <div class="settings-actions"><p class="status-copy" role="status" id="settings-status"></p><button class="secondary" type="button" id="defaults-button">기본값 불러오기</button><button class="primary" type="submit" id="save-button">저장</button></div>
+  </form>
+  <script type="application/json" id="settings-defaults">{{ defaults|tojson }}</script>
+  {% include "_collect.html" %}
+</main>
+</body>
+</html>
