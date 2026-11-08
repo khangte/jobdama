@@ -125,6 +125,103 @@
     }
   });
   // #collect는 htmx가 통째로 교체하므로, 폼에 직접 달지 않고 문서에서 받아 이벤트의 현재 폼을 쓴다
+  const collectDesktop = window.matchMedia("(min-width: 1100px)");
+  let collectPage = 1;
+  let collectScope = null;
+  let collectPageFocus = null;
+
+  function focusCollectPage(host, key) {
+    // 조각 교체나 번호 행 재생성 뒤에도 키보드 위치를 유지한다.
+    const target = host.querySelector(`[data-collect-focus="${key}"]`);
+    const button = target && !target.disabled ? target : host.querySelector('[aria-current="page"]');
+    button?.focus({ preventScroll: true });
+  }
+
+  function collectPageButton(label, page, key, disabled = false, current = false) {
+    // 번호와 이전·다음에 공통으로 쓰는 접근 가능한 버튼을 만든다.
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "page-button";
+    button.textContent = label;
+    button.dataset.collectPage = String(page);
+    button.dataset.collectFocus = key;
+    button.disabled = disabled;
+    button.setAttribute("aria-label", key === "prev" ? "이전 페이지" : key === "next" ? "다음 페이지" : `${page}페이지`);
+    if (current) button.setAttribute("aria-current", "page");
+    return button;
+  }
+
+  function renderCollectPagination() {
+    // 폴링 조각 밖에 둔 페이지 상태를 현재 목록에 다시 적용한다.
+    const root = document.getElementById("collect");
+    if (!root) return;
+    const scope = JSON.stringify([root.dataset.collectStatus, root.dataset.collectRun]);
+    if (collectScope !== null && collectScope !== scope) collectPage = 1;
+    collectScope = scope;
+    const items = [...root.querySelectorAll("[data-collect-item]")];
+    const host = root.querySelector("[data-collect-pagination]");
+    if (!host) return;
+    const focused = host.contains(document.activeElement) ? document.activeElement.dataset.collectFocus : null;
+    if (!collectDesktop.matches) {
+      items.forEach((item) => { item.hidden = false; });
+      host.hidden = true;
+      host.replaceChildren();
+      return;
+    }
+    const pages = Math.max(1, Math.ceil(items.length / 10));
+    collectPage = Math.max(1, Math.min(collectPage, pages));
+    const first = (collectPage - 1) * 10;
+    items.forEach((item, index) => { item.hidden = index < first || index >= first + 10; });
+    if (pages === 1) {
+      host.hidden = true;
+      host.replaceChildren();
+      return;
+    }
+    const info = document.createElement("p");
+    info.className = "pagination-info";
+    info.textContent = `${first + 1}–${Math.min(first + 10, items.length)} / 총 ${items.length}개 · 페이지당 10개 · ${collectPage} / ${pages} 페이지`;
+    const nav = document.createElement("nav");
+    nav.className = "pagination-controls";
+    nav.setAttribute("aria-label", "공고별 결과 페이지 이동");
+    const numbers = document.createElement("div");
+    numbers.className = "pagination-numbers";
+    for (let page = Math.max(1, collectPage - 4); page <= Math.min(pages, collectPage + 4); page++) {
+      const button = collectPageButton(String(page), page, `page-${page}`, false, page === collectPage);
+      button.style.gridColumn = String(page - collectPage + 5);
+      numbers.append(button);
+    }
+    nav.append(collectPageButton("이전", collectPage - 1, "prev", collectPage === 1), numbers,
+      collectPageButton("다음", collectPage + 1, "next", collectPage === pages));
+    host.replaceChildren(info, nav);
+    host.hidden = false;
+    if (focused) focusCollectPage(host, focused);
+  }
+
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-collect-page]");
+    if (!button || button.disabled || !collectDesktop.matches) return;
+    const next = Number(button.dataset.collectPage);
+    if (next === collectPage) return;
+    collectPage = next;
+    renderCollectPagination();
+  });
+  document.addEventListener("htmx:beforeSwap", (event) => {
+    if (event.detail.target?.id !== "collect") return;
+    collectPageFocus = document.activeElement.closest?.(".collect-pagination")
+      ? document.activeElement.dataset.collectFocus : null;
+  });
+  document.addEventListener("htmx:afterSwap", (event) => {
+    if (event.target.id !== "collect" && event.detail.target?.id !== "collect") return;
+    renderCollectPagination();
+    if (collectPageFocus && document.activeElement === document.body) {
+      const host = document.querySelector("[data-collect-pagination]");
+      if (host && !host.hidden) focusCollectPage(host, collectPageFocus);
+    }
+    collectPageFocus = null;
+  });
+  collectDesktop.addEventListener("change", renderCollectPagination);
+  renderCollectPagination();
+
   let collectPending = false;
   document.addEventListener("submit", async (e) => {
     const collectForm = e.target.closest("#collect-form");
@@ -148,6 +245,7 @@
           body: JSON.stringify({ dry_run: dryRun, trigger: "screen" }),
         });
         if (res.status === 202) {
+          collectPage = 1;
           started = true;  // 조각 교체가 버튼 상태를 정한다
           return window.htmx && htmx.trigger(document.body, "collect-started");
         }

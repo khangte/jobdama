@@ -1,4 +1,4 @@
-<div id="collect" class="collect-stack" hx-get="/collect/results?status={{ status }}" hx-trigger="{% if running %}every 2s, {% endif %}collect-started from:body" hx-swap="outerHTML">
+<div id="collect" class="collect-stack" data-collect-status="{{ status }}" data-collect-run="{{ run.started_at if run else '' }}" hx-get="/collect/results?status={{ status }}" hx-trigger="{% if running %}every 2s, {% endif %}collect-started from:body" hx-swap="outerHTML">
   <section class="panel collect-status" aria-label="수집 상태">
     <div>
       {% if running %}<strong>수집 중이에요</strong><p>사이트를 하나씩 확인하고 있어요. 지금까지 {{ counts.all }}건을 처리했어요.</p>
@@ -44,7 +44,7 @@
     <ol class="jobs">
       {% if running %}<li class="card job"><span class="company-mark" aria-hidden="true">↗</span><div class="job-body"><div class="job-heading"><h3 class="job-title">공고 정보를 가져오고 있어요</h3><span class="badge processing">수집 중</span></div><p class="job-message">공고 내용을 확인하는 중이에요. 잠시만 기다려 주세요.</p></div></li>{% endif %}
       {% for item in items %}
-      <li class="card job {{ item.css }}">
+      <li class="card job {{ item.css }}" data-collect-item>
         <span class="company-mark" aria-hidden="true">{{ item.title.lstrip('[')[:1] }}</span>
         <div class="job-body">
           <div class="job-heading"><h3 class="job-title">{{ item.title }}</h3><span class="badge {{ item.css }}">{{ item.status }}</span></div>
@@ -60,6 +60,7 @@
       {% else %}{% if not running %}<li class="panel empty-collect"><p>해당하는 공고가 없어요.</p></li>{% endif %}
       {% endfor %}
     </ol>
+    <div class="collect-pagination" data-collect-pagination hidden></div>
     {% endif %}
   </section>
 </div>

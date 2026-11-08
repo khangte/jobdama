@@ -39,7 +39,7 @@
     <p class="settings-banner error-summary" id="settings-error" role="alert" hidden></p>
     <p class="settings-banner success" id="settings-success" hidden>저장했어요. 다음 수집부터 적용돼요.</p>
     <section class="panel settings-panel sites-panel" aria-labelledby="sites-heading">
-      <h3 id="sites-heading">찾을 곳</h3>
+      <h3 id="sites-heading"><span class="collect-narrow-copy">찾을 곳</span><span class="collect-desktop-copy">수집 범위</span></h3>
       <div class="site-row">
         <div class="field site-field"><fieldset id="sites-field"><legend>대상 사이트</legend><div class="chip-list">
           {% for key, name in choices.sites %}<label class="site-chip"><input type="checkbox" name="sites" value="{{ key }}"{% if key in config.sites %} checked{% endif %}><span class="chip-mark" aria-hidden="true">✓</span>{{ name }}</label>
@@ -62,7 +62,7 @@
       </div>
     </section>
       <details class="panel settings-panel words-details" id="words-details">
-        <summary id="words-summary"><span class="words-title">거르는 단어</span><span class="words-counts" id="words-counts">공고명 제외 {{ config.title_exclude_words|length }}개 · {% if config.body_signal_words %}본문 신호 {{ config.body_signal_words|length }}개{% else %}본문 신호 검사 안 함{% endif %}</span></summary>
+        <summary id="words-summary"><span class="words-title"><span class="collect-narrow-copy">거르는 단어</span><span class="collect-desktop-copy">단어 필터</span></span><span class="words-counts" id="words-counts">공고명 제외 {{ config.title_exclude_words|length }}개 · {% if config.body_signal_words %}본문 신호 {{ config.body_signal_words|length }}개{% else %}본문 신호 검사 안 함{% endif %}</span></summary>
         <div class="words-grid">
           <div class="field"><label for="title_exclude_words">공고명 제외 단어</label><textarea id="title_exclude_words" name="title_exclude_words">{{ config.title_exclude_words|join("\n") }}</textarea><small class="field-hint">한 줄에 하나씩. 공고명에 들어 있으면 제외해요. 대소문자는 가리지 않아요.</small><p class="field-error" id="err-title_exclude_words" hidden></p></div>
           <div class="field"><label for="body_signal_words">본문 필수 신호</label><textarea id="body_signal_words" name="body_signal_words">{{ config.body_signal_words|join("\n") }}</textarea><small class="field-hint">한 줄에 하나씩. 본문에 하나도 없으면 제외해요. 비워 두면 검사하지 않아요.</small><p class="field-error" id="err-body_signal_words" hidden></p></div>
