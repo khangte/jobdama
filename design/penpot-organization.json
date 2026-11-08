@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-11-05",
+  "updatedAt": "2026-11-08",
   "fileId": "08b470c5-dda4-812a-8008-e48575502aa7",
   "fileName": "jobdama",
   "pages": [
@@ -97,6 +97,78 @@
           "x": 1600,
           "y": 4420,
           "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9b0732866b1",
+          "name": "D03-01 · 수집 / 기록 없음",
+          "width": 1440,
+          "height": 1260,
+          "x": 0,
+          "y": 5800,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9b08e299ca1",
+          "name": "D03-02 · 수집 / 실행 중",
+          "width": 1440,
+          "height": 1510,
+          "x": 1600,
+          "y": 5800,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9b0987787e1",
+          "name": "D03-03 · 수집 / 완료",
+          "width": 1440,
+          "height": 2100,
+          "x": 3200,
+          "y": 5800,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9b0aba9ce21",
+          "name": "D03-04 · 수집 / Notion 미연결",
+          "width": 1440,
+          "height": 1350,
+          "x": 4800,
+          "y": 5800,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9c10dfc5a35",
+          "name": "D04-01 · 수집 조건 / 기본",
+          "width": 1440,
+          "height": 1740,
+          "x": 0,
+          "y": 8140,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9c1172623d5",
+          "name": "D04-02 · 수집 조건 / 입력 오류",
+          "width": 1440,
+          "height": 1840,
+          "x": 1600,
+          "y": 8140,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9c12704fe1e",
+          "name": "D04-03 · 수집 조건 / 저장 완료",
+          "width": 1440,
+          "height": 1810,
+          "x": 3200,
+          "y": 8140,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9c13d1e0fb6",
+          "name": "D04-04 · 수집 조건 / 설정 파일 오류",
+          "width": 1440,
+          "height": 1810,
+          "x": 4800,
+          "y": 8140,
+          "pageId": "4cc34dc4-db22-8015-8008-e484f5f10e2a"
         }
       ],
       "rootGroups": 0
@@ -167,6 +239,51 @@
           "x": 490,
           "y": 3160,
           "pageId": "0baaac6e-2d0b-809d-8008-e4a04de13d42"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9b0f796cbf6",
+          "name": "M03-01 · 수집 / 기록 없음",
+          "width": 390,
+          "height": 1400,
+          "x": 0,
+          "y": 4400,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04de13d42"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9b1044d5217",
+          "name": "M03-02 · 수집 / 실행 중",
+          "width": 390,
+          "height": 1980,
+          "x": 490,
+          "y": 4400,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04de13d42"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9b11362f2ec",
+          "name": "M03-03 · 수집 / 완료",
+          "width": 390,
+          "height": 2610,
+          "x": 980,
+          "y": 4400,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04de13d42"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9c1d40b2da7",
+          "name": "M04-01 · 수집 조건 / 기본",
+          "width": 390,
+          "height": 2530,
+          "x": 0,
+          "y": 6820,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04de13d42"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9c1dbeeb06e",
+          "name": "M04-02 · 수집 조건 / 입력 오류",
+          "width": 390,
+          "height": 2640,
+          "x": 490,
+          "y": 6820,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04de13d42"
         }
       ],
       "rootGroups": 0
@@ -215,9 +332,63 @@
           "id": "7ec0deaf-0a65-8075-8008-e631e3d96189",
           "name": "C03-02 · 결과 카드 / 상태 모음",
           "width": 970,
-          "height": 1589,
+          "height": 2223,
           "x": 1100,
           "y": 1400,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04deb3166"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9b1fac99c82",
+          "name": "C04-01 · 사이트 집계 표 행 / 상태 모음",
+          "width": 966,
+          "height": 292,
+          "x": -30,
+          "y": 3870,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04deb3166"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9b217407474",
+          "name": "C05-01 · 상태 필터 탭 / 상태 모음",
+          "width": 144,
+          "height": 176,
+          "x": -30,
+          "y": 4270,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04deb3166"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9c06d06b621",
+          "name": "C06-01 · 선택 상자 필드 / 상태 모음",
+          "width": 1380,
+          "height": 193,
+          "x": 0,
+          "y": 4720,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04deb3166"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9c06da2bded",
+          "name": "C07-01 · 여러 줄 입력 필드 / 상태 모음",
+          "width": 900,
+          "height": 265,
+          "x": 0,
+          "y": 5100,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04deb3166"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9c06df5b555",
+          "name": "C08-01 · 안내 배너 / 상태 모음",
+          "width": 1110,
+          "height": 130,
+          "x": 0,
+          "y": 5530,
+          "pageId": "0baaac6e-2d0b-809d-8008-e4a04deb3166"
+        },
+        {
+          "id": "a23e83c5-8467-8035-8008-e9c06ecefaae",
+          "name": "C09-01 · 체크 칩 / 상태 모음",
+          "width": 1162,
+          "height": 108,
+          "x": 0,
+          "y": 5840,
           "pageId": "0baaac6e-2d0b-809d-8008-e4a04deb3166"
         }
       ],
@@ -368,6 +539,190 @@
         "Status": "수집 중",
         "Viewport": "Desktop"
       }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9b16950d37b",
+      "name": "상태 모음",
+      "path": "C03-02 · 결과 카드",
+      "mainId": "a23e83c5-8467-8035-8008-e9b16950d37c",
+      "isVariant": true,
+      "variantProps": {
+        "Status": "저장 안 함",
+        "Viewport": "Desktop"
+      }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9b1998e9dea",
+      "name": "상태 모음",
+      "path": "C03-02 · 결과 카드",
+      "mainId": "a23e83c5-8467-8035-8008-e9b1998e9deb",
+      "isVariant": true,
+      "variantProps": {
+        "Status": "저장 안 함",
+        "Viewport": "Mobile"
+      }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9b1b9d75794",
+      "name": "상태 모음",
+      "path": "C03-02 · 결과 카드",
+      "mainId": "a23e83c5-8467-8035-8008-e9b1b9d75795",
+      "isVariant": true,
+      "variantProps": {
+        "Status": "저장 대상",
+        "Viewport": "Desktop"
+      }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9b1b9f1aa13",
+      "name": "상태 모음",
+      "path": "C03-02 · 결과 카드",
+      "mainId": "a23e83c5-8467-8035-8008-e9b1b9f1aa14",
+      "isVariant": true,
+      "variantProps": {
+        "Status": "저장 대상",
+        "Viewport": "Mobile"
+      }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9b1f453abab",
+      "name": "상태 모음",
+      "path": "C04-01 · 사이트 집계 표 행",
+      "mainId": "a23e83c5-8467-8035-8008-e9b1f35596ad",
+      "isVariant": true,
+      "variantProps": {
+        "Error": "없음"
+      }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9b1f454c740",
+      "name": "상태 모음",
+      "path": "C04-01 · 사이트 집계 표 행",
+      "mainId": "a23e83c5-8467-8035-8008-e9b1f3d32ff5",
+      "isVariant": true,
+      "variantProps": {
+        "Error": "있음"
+      }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9b21078f991",
+      "name": "상태 모음",
+      "path": "C05-01 · 상태 필터 탭",
+      "mainId": "a23e83c5-8467-8035-8008-e9b210507b10",
+      "isVariant": true,
+      "variantProps": {
+        "Selected": "선택"
+      }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9b210795dda",
+      "name": "상태 모음",
+      "path": "C05-01 · 상태 필터 탭",
+      "mainId": "a23e83c5-8467-8035-8008-e9b210660763",
+      "isVariant": true,
+      "variantProps": {
+        "Selected": "비선택"
+      }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9c06d02c382",
+      "name": "상태 모음",
+      "path": "C06-01 · 선택 상자 필드",
+      "mainId": "a23e83c5-8467-8035-8008-e9c06c1a04bc",
+      "isVariant": true,
+      "variantProps": {
+        "State": "기본"
+      }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9c06d0403ef",
+      "name": "상태 모음",
+      "path": "C06-01 · 선택 상자 필드",
+      "mainId": "a23e83c5-8467-8035-8008-e9c06c630e5a",
+      "isVariant": true,
+      "variantProps": {
+        "State": "포커스"
+      }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9c06d05a6cd",
+      "name": "상태 모음",
+      "path": "C06-01 · 선택 상자 필드",
+      "mainId": "a23e83c5-8467-8035-8008-e9c06cbb1d00",
+      "isVariant": true,
+      "variantProps": {
+        "State": "오류"
+      }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9c06da07fcb",
+      "name": "상태 모음",
+      "path": "C07-01 · 여러 줄 입력 필드",
+      "mainId": "a23e83c5-8467-8035-8008-e9c06d21ebd0",
+      "isVariant": true,
+      "variantProps": {
+        "State": "기본"
+      }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9c06da16a40",
+      "name": "상태 모음",
+      "path": "C07-01 · 여러 줄 입력 필드",
+      "mainId": "a23e83c5-8467-8035-8008-e9c06d5d0a88",
+      "isVariant": true,
+      "variantProps": {
+        "State": "오류"
+      }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9c06df3bcdb",
+      "name": "상태 모음",
+      "path": "C08-01 · 안내 배너",
+      "mainId": "a23e83c5-8467-8035-8008-e9c06db7df54",
+      "isVariant": true,
+      "variantProps": {
+        "Type": "경고"
+      }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9c06df4f44e",
+      "name": "상태 모음",
+      "path": "C08-01 · 안내 배너",
+      "mainId": "a23e83c5-8467-8035-8008-e9c06dd3e4a7",
+      "isVariant": true,
+      "variantProps": {
+        "Type": "정보"
+      }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9c06ecb522b",
+      "name": "상태 모음",
+      "path": "C09-01 · 체크 칩",
+      "mainId": "a23e83c5-8467-8035-8008-e9c06e0c5b89",
+      "isVariant": true,
+      "variantProps": {
+        "State": "선택"
+      }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9c06ecc4935",
+      "name": "상태 모음",
+      "path": "C09-01 · 체크 칩",
+      "mainId": "a23e83c5-8467-8035-8008-e9c06e3ce327",
+      "isVariant": true,
+      "variantProps": {
+        "State": "비선택"
+      }
+    },
+    {
+      "id": "a23e83c5-8467-8035-8008-e9c06ecd8e57",
+      "name": "상태 모음",
+      "path": "C09-01 · 체크 칩",
+      "mainId": "a23e83c5-8467-8035-8008-e9c06e8a6320",
+      "isVariant": true,
+      "variantProps": {
+        "State": "포커스"
+      }
     }
   ],
   "archivedOrphanComponents": 10,
@@ -378,15 +733,45 @@
     "desktopReferences": true,
     "fileIntegrityErrors": 0,
     "mobileRenderChecked": true,
-    "desktopPrototypeLinks": 16,
-    "mobilePrototypeLinks": 13,
+    "desktopPrototypeLinks": 30,
+    "mobilePrototypeLinks": 17,
     "variantProperties": [
       "Status",
       "Viewport"
     ],
-    "variantCount": 10
+    "variantCount": 14,
+    "newPartVariantCount": 4,
+    "newBoardShapeOverflow": 0,
+    "newBoardTextOverflow": 0,
+    "variantErrors": 0,
+    "brokenPrototypeTargets": 0,
+    "desktopRenderChecked": true,
+    "integrityMethod": "Penpot MCP: 보드 경계, 텍스트 경계, Variant 오류, 화면 이동 대상 검사",
+    "task6NewBoardShapeOverflow": 0,
+    "task6NewBoardTextOverflow": 0,
+    "task6VariantErrors": 0,
+    "task6BrokenPrototypeTargets": 0,
+    "task6LocalRenderWidths": [
+      1440,
+      390,
+      320
+    ],
+    "task6PenpotRenderChecked": true,
+    "task6IntegrityMethod": "Penpot MCP 도형·텍스트 경계, Variant, 화면 이동 대상 검사"
   },
   "savedVersions": [
+    {
+      "label": "task6/collect-settings",
+      "createdAt": "2026-11-08T07:06:49.675Z"
+    },
+    {
+      "label": "task9/collect-screen-final",
+      "createdAt": "2026-11-08T06:06:11.835Z"
+    },
+    {
+      "label": "task9/collect-screen-verified",
+      "createdAt": "Sun Nov 08 2026 15:02:25 GMT+0900 (한국 표준시)"
+    },
     {
       "label": "internal/snapshot/35",
       "createdAt": "Thu Nov 05 2026 21:43:10 GMT+0900 (한국 표준시)"

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>잡담아 · 자동 수집 화면 시안</title>
+  <link rel="stylesheet" href="../app/static/style.css">
+  <style>
+    .nav a{font-size:13px;font-weight:600;color:var(--muted)}.nav a[aria-current]{color:var(--blue)}
+    .collect-workspace{max-width:1224px;margin:auto;padding:48px 32px 96px}
+    .collect-stack{max-width:1080px;display:grid;gap:24px;margin-top:32px}
+    .collect-status{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:24px 28px}
+    .collect-status strong{font-size:16px}.collect-status p{color:var(--muted);font-size:12px;margin-top:5px}
+    .collect-status .state-chip{flex:none;background:var(--run-bg);color:var(--blue);padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700}
+    .collect-status .state-chip.preview{background:var(--info-bg);color:var(--info)}
+    .run-panel{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:26px 28px}
+    .run-panel h2,.section-title{font-size:17px}.run-panel p{color:var(--muted);font-size:12px;margin-top:5px}
+    .run-controls{display:flex;align-items:center;gap:20px}.preview-check{display:flex;align-items:center;gap:8px;font-size:12px;white-space:nowrap}.preview-check input{accent-color:var(--blue);width:16px;height:16px}
+    .run-panel button{white-space:nowrap}.run-panel button:disabled{opacity:.55;background:var(--blue);cursor:not-allowed}
+    .notice{padding:17px 21px;background:var(--run-bg);border-radius:10px;color:var(--text);font-size:13px}.notice a{font-weight:700;margin-left:8px}
+    .collect-summary{padding:26px 28px}.section-title{margin-bottom:16px}.summary-table{width:100%;border-collapse:collapse;text-align:left;font-size:12px}.summary-table th{color:var(--muted);font-weight:600;background:var(--bg)}.summary-table th,.summary-table td{padding:12px 14px;border-bottom:1px solid var(--border)}.summary-table th:first-child,.summary-table td:first-child{padding-left:16px}.summary-table tr:last-child td{border-bottom:0}.summary-table .site-error{color:var(--bad);font-size:11px;padding:3px 16px 12px}.summary-table .total{font-weight:700;background:#fbfdff}.summary-cards{display:none}
+    .collect-results .results-heading{margin:0 0 14px}.filter-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:15px}.filter-list button{padding:7px 11px;background:white;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px}.filter-list button.selected{background:var(--run-bg);color:var(--blue);border-color:#bcd0fa;font-weight:700}
+    .collect-results .jobs{list-style:none;margin:0;padding:0}.collect-results .job{margin-bottom:10px}.collect-results .job:last-child{margin-bottom:0}
+    .collect-results .badge.skipped{color:var(--info);background:var(--info-bg)}.collect-results .badge.preview{color:var(--blue);background:var(--run-bg)}
+    .criteria{padding:26px 28px}.criteria-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.criteria-heading a{font-size:12px;font-weight:700;white-space:nowrap}.criteria-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 28px}.criterion{border-top:1px solid var(--border);padding-top:13px}.criterion strong{display:block;font-size:12px}.criterion p{font-size:12px;color:var(--muted);margin-top:4px}.criteria-note{font-size:11px;color:var(--muted);margin-top:20px}
+    .empty-collect{text-align:center;padding:48px 20px}.empty-collect h3{font-size:18px}.empty-collect p{font-size:13px;color:var(--muted);margin-top:8px}
+    .preview-toolbar{position:fixed;z-index:10;bottom:14px;right:14px;display:flex;gap:6px;padding:8px;background:#182334ed;border-radius:10px}.preview-toolbar a{color:white;font-size:11px;padding:5px 8px}.preview-toolbar a[aria-current]{background:var(--blue);border-radius:5px}
+    body[data-state="empty"] .only-active,body[data-state="disconnected"] .only-active,body[data-state="done"] .only-running,body[data-state="empty"] .only-running,body[data-state="disconnected"] .only-running,body[data-state="running"] .only-done,body[data-state="empty"] .only-done,body[data-state="disconnected"] .only-done,body[data-state="done"] .only-empty,body[data-state="running"] .only-empty,body[data-state="disconnected"] .only-empty,body:not([data-state="disconnected"]) .only-disconnected{display:none!important}
+    @media(max-width:800px){.collect-workspace{max-width:720px}.run-panel{align-items:flex-start;flex-direction:column}.run-controls{width:100%;justify-content:space-between}}
+    @media(max-width:480px){.topbar{height:auto;min-height:100px;gap:8px;flex-wrap:wrap;padding-top:10px;padding-bottom:8px}.topbar>.status-wrap{margin-left:auto}.topbar .status-button{min-height:34px;padding:6px 9px;font-size:10px}.nav{order:3;width:100%;justify-content:flex-start;gap:18px}.nav a{font-size:11px;white-space:nowrap}.collect-workspace{padding:30px 20px 96px}.collect-stack{gap:18px;margin-top:24px}.collect-status{padding:20px;align-items:flex-start}.collect-status strong{font-size:14px}.collect-status .state-chip{font-size:10px}.run-panel,.collect-summary,.criteria{padding:20px}.run-controls{flex-direction:column;align-items:stretch;gap:15px}.run-controls button{width:100%}.summary-table{display:none}.summary-cards{display:grid;gap:10px}.summary-card{border:1px solid var(--border);border-radius:10px;padding:13px 14px}.summary-card strong{font-size:12px}.summary-card dl{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin:9px 0 0}.summary-card dt{font-size:9px;color:var(--muted)}.summary-card dd{font-size:12px;font-weight:700;margin:0}.summary-card .site-error{font-size:11px;color:var(--bad);margin-top:8px;overflow-wrap:anywhere}.filter-list button{font-size:10px;padding:6px 8px}.criteria-grid{grid-template-columns:1fr;gap:10px}.criteria{overflow-wrap:anywhere}.empty-collect{padding:38px 12px}.preview-toolbar{left:8px;right:8px;bottom:8px;justify-content:center}.preview-toolbar a{font-size:10px}}
+    @media(max-width:340px){.brand-name{font-size:17px}.brand-mark{width:30px;height:30px;font-size:14px}.nav a{font-size:10px}.collect-workspace{padding-left:16px;padding-right:16px}.collect-status{flex-direction:column;gap:10px}.job-heading{gap:8px}}
+    body[data-capture="1"] .preview-toolbar{display:none}
+  </style>
+</head>
+<body data-state="empty">
+  <header class="topbar">
+    <a class="brand" href="../" aria-label="잡담아 홈"><span class="brand-mark">jd.</span><div class="brand-name">잡담아<small>JOBDAMA</small></div></a>
+    <nav class="nav" aria-label="주 메뉴"><a href="../">공고 담기</a><a href="collect-screen.html" aria-current="page">자동 수집</a></nav><div class="status-wrap"><button class="status-button connected"><span class="dot"></span>Notion 연결됨<span class="chevron">⌄</span></button></div>
+  </header>
+  <main class="collect-workspace">
+    <p class="eyebrow">COLLECT YOUR NEXT OPPORTUNITY</p>
+    <h1>자동 수집</h1>
+    <p class="subtitle">매일 정해진 사이트에서 조건에 맞는 공고만 골라 Notion에 담아요.</p>
+    <div class="collect-stack">
+      <section class="panel collect-status" aria-label="수집 상태">
+        <div class="only-empty"><strong>아직 실행 기록이 없어요.</strong><p>수집 실행을 누르거나 스케줄을 등록하세요.</p></div>
+        <div class="only-running"><strong class="running-label">수집 중이에요</strong><p>사람인 · 잡코리아 · 인크루트 · 원티드에서 공고를 확인하고 있어요.</p></div>
+        <div class="only-done"><strong>마지막 실행 2026-11-08 09:30</strong><p>실행 방식 화면 · 완료 09:34</p></div>
+        <div class="only-disconnected"><strong>Notion을 연결해야 수집할 수 있어요.</strong><p>메인 화면에서 연결한 뒤 다시 실행해 주세요.</p></div>
+        <span class="state-chip only-running">진행 중</span><span class="state-chip preview only-done">미리보기</span>
+      </section>
+      <section class="notice only-disconnected">Notion을 연결해야 수집할 수 있어요.<a href="../">메인에서 연결하기 →</a></section>
+      <section class="panel run-panel" aria-label="수집 실행">
+        <div><h2>수집 실행</h2><p>지금 5개 사이트에서 공고를 확인합니다.</p></div>
+        <div class="run-controls"><label class="preview-check"><input type="checkbox">미리보기 (Notion에 저장하지 않음)</label><button class="primary" type="button" id="run-button">수집 실행</button></div>
+      </section>
+      <section class="panel collect-summary only-active" aria-label="사이트별 집계">
+        <h2 class="section-title">사이트별 집계</h2>
+        <table class="summary-table"><thead><tr><th>사이트</th><th>후보</th><th>저장</th><th>이미 있음</th><th>제외</th><th>실패</th></tr></thead><tbody>
+          <tr><td>사람인</td><td>20</td><td>2</td><td>1</td><td>15</td><td>2</td></tr><tr><td>잡코리아</td><td>18</td><td>1</td><td>2</td><td>14</td><td>1</td></tr><tr><td>인크루트</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td colspan="6" class="site-error">인크루트 · HTTP 403</td></tr><tr><td>원티드</td><td>12</td><td>1</td><td>1</td><td>9</td><td>1</td></tr><tr class="total"><td>합계</td><td>50</td><td>4</td><td>4</td><td>38</td><td>4</td></tr>
+        </tbody></table>
+        <div class="summary-cards">
+          <div class="summary-card"><strong>사람인</strong><dl><div><dt>후보</dt><dd>20</dd></div><div><dt>저장</dt><dd>2</dd></div><div><dt>이미 있음</dt><dd>1</dd></div><div><dt>제외</dt><dd>15</dd></div><div><dt>실패</dt><dd>2</dd></div></dl></div>
+          <div class="summary-card"><strong>잡코리아</strong><dl><div><dt>후보</dt><dd>18</dd></div><div><dt>저장</dt><dd>1</dd></div><div><dt>이미 있음</dt><dd>2</dd></div><div><dt>제외</dt><dd>14</dd></div><div><dt>실패</dt><dd>1</dd></div></dl></div>
+          <div class="summary-card"><strong>인크루트</strong><dl><div><dt>후보</dt><dd>0</dd></div><div><dt>저장</dt><dd>0</dd></div><div><dt>이미 있음</dt><dd>0</dd></div><div><dt>제외</dt><dd>0</dd></div><div><dt>실패</dt><dd>0</dd></div></dl><p class="site-error">HTTP 403</p></div>
+          <div class="summary-card"><strong>원티드</strong><dl><div><dt>후보</dt><dd>12</dd></div><div><dt>저장</dt><dd>1</dd></div><div><dt>이미 있음</dt><dd>1</dd></div><div><dt>제외</dt><dd>9</dd></div><div><dt>실패</dt><dd>1</dd></div></dl></div>
+        </div>
+      </section>
+      <section class="collect-results" aria-label="공고별 결과">
+        <div class="results-heading"><h2>공고별 결과 <span class="count only-active">50</span></h2></div>
+        <div class="panel empty-collect only-empty"><h3>아직 실행 기록이 없어요.</h3><p>수집 실행을 누르거나 스케줄을 등록하세요.</p></div>
+        <div class="panel empty-collect only-disconnected"><h3>수집 기록을 기다리고 있어요.</h3><p>메인에서 Notion을 연결해 주세요.</p></div>
+        <div class="only-active"><div class="filter-list only-done" aria-label="결과 필터"><button class="selected">전체 50</button><button>저장 4</button><button>이미 있음 4</button><button>제외 38</button><button>실패 4</button></div>
+          <ol class="jobs">
+            <li class="card job only-done"><span class="company-mark">데</span><div class="job-body"><div class="job-heading"><h3 class="job-title">데이터 플랫폼 엔지니어</h3><span class="badge preview">저장 대상</span></div><p class="job-message">미리보기에서 선별 조건을 통과했어요. Notion에는 저장하지 않았어요.</p><div class="job-meta"><span class="site-label">사람인</span><span>09:31</span><div class="job-links"><a href="#">원문 ↗</a></div></div></div></li>
+            <li class="card job only-done"><span class="company-mark">백</span><div class="job-body"><div class="job-heading"><h3 class="job-title">백엔드 개발자 (3년 이상)</h3><span class="badge skipped">저장 안 함</span></div><p class="job-message">경력 제외: 3년 이상</p><div class="job-meta"><span class="site-label">잡코리아</span><span>09:32</span><div class="job-links"><a href="#">원문 ↗</a></div></div></div></li>
+            <li class="card job only-running"><span class="company-mark">↗</span><div class="job-body"><div class="job-heading"><h3 class="job-title">공고 정보를 가져오고 있어요</h3><span class="badge processing">수집 중</span></div><p class="job-message">공고 내용을 확인하는 중이에요. 잠시만 기다려 주세요.</p><div class="job-meta"><span class="site-label">사람인</span><span>09:30</span></div></div></li>
+          </ol>
+        </div>
+      </section>
+      <section class="panel criteria" aria-label="선별 조건">
+        <div class="criteria-heading"><h2 class="section-title">선별 조건</h2><a href="collect-settings.html?state=default">조건 바꾸기 →</a></div>
+        <div class="criteria-grid">
+          <div class="criterion"><strong>검색어</strong><p>python</p></div>
+          <div class="criterion"><strong>대상 사이트</strong><p>사람인 · 잡코리아 · 원티드 · 인크루트 · 점핏</p></div>
+          <div class="criterion"><strong>사이트별 최대</strong><p>20개</p></div>
+          <div class="criterion"><strong>직무</strong><p>무관</p></div>
+          <div class="criterion"><strong>근무지</strong><p>서울·경기</p></div>
+          <div class="criterion"><strong>경력</strong><p>2년 이하</p></div>
+          <div class="criterion"><strong>학력</strong><p>무관</p></div>
+          <div class="criterion"><strong>고용형태</strong><p>무관</p></div>
+          <div class="criterion"><strong>연봉</strong><p>무관</p></div>
+          <div class="criterion"><strong>정렬</strong><p>최신순</p></div>
+          <div class="criterion"><strong>공고명 제외 단어</strong><p>시니어, senior, 팀장, 리드, lead, head, principal, 프론트엔드, frontend, front-end, ios, android, 안드로이드, 퍼블리셔, 디자이너, 강사, 영업</p></div>
+          <div class="criterion"><strong>본문 필수 신호</strong><p>python, 파이썬, django, fastapi, flask, airflow, etl, elt, spark, kafka, dbt, 데이터 파이프라인, data pipeline</p></div>
+        </div>
+      </section>
+    </div>
+  </main>
+  <div class="preview-toolbar" aria-label="시안 상태 전환"><a href="?state=empty">기록 없음</a><a href="?state=running">실행 중</a><a href="?state=done">완료</a><a href="?state=disconnected">미연결</a></div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const state = params.get('state') || 'empty';
+    document.body.dataset.state = ['empty','running','done','disconnected'].includes(state) ? state : 'empty';
+    document.body.dataset.capture = params.get('capture') || '0';
+    document.querySelectorAll('.preview-toolbar a').forEach(a => { if (a.search.includes('state=' + document.body.dataset.state)) a.setAttribute('aria-current','page'); });
+    if (document.body.dataset.state === 'running' || document.body.dataset.state === 'disconnected') document.getElementById('run-button').disabled = true;
+    if (document.body.dataset.state === 'disconnected') { const button = document.querySelector('.status-button'); button.classList.remove('connected'); button.innerHTML = '<span class="dot"></span>Notion 미연결<span class="chevron">⌄</span>'; }
+  </script>
+</body>
+</html>
