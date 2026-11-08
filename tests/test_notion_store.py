@@ -8,10 +8,11 @@ from notion_client import AsyncClient
 from notion_client.errors import HTTPResponseError
 
 from app.config import Settings
-from app.notion_store import (
-    COMPANY_ROLES, JOB_ROLES, NotionError, NotionStore, _pick_option, build_children, extract_notion_id, is_closed,
-    normalize_title, resolve_props,
-)
+from app.notion.blocks import build_children
+from app.notion.errors import NotionError
+from app.notion.pages import is_closed, normalize_title
+from app.notion.schema import COMPANY_ROLES, JOB_ROLES, pick_option, resolve_props
+from app.notion.store import NotionStore, extract_notion_id
 from app.models import Posting
 from app.parsers.sites import saramin
 from app.collection.urls import normalize
@@ -237,13 +238,13 @@ def test_resolve_does_not_reuse_column():
 
 
 def test_pick_option():
-    assert _pick_option(STAGE, "📌 시작 전") == "📌 시작 전"
+    assert pick_option(STAGE, "📌 시작 전") == "📌 시작 전"
     status = {"type": "status", "status": {
         "options": [{"id": "a", "name": "완료"}, {"id": "b", "name": "대기"}],
         "groups": [{"name": "To-do", "option_ids": ["b"]}, {"name": "Complete", "option_ids": ["a"]}]}}
-    assert _pick_option(status, "📌 시작 전") == "대기"  # 상태는 첫 그룹(할 일)의 첫 옵션
-    assert _pick_option(COMPANY_SCHEMA["상태"], "없는 옵션") == "⭐ 관심"
-    assert _pick_option({"type": "select", "select": {"options": []}}, "x") is None
+    assert pick_option(status, "📌 시작 전") == "대기"  # 상태는 첫 그룹(할 일)의 첫 옵션
+    assert pick_option(COMPANY_SCHEMA["상태"], "없는 옵션") == "⭐ 관심"
+    assert pick_option({"type": "select", "select": {"options": []}}, "x") is None
 
 
 async def test_create_posting_fits_column_types():

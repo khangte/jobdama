@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     notion_token: str = ""
     job_data_source_id: str = ""  # 관심 기업 리스트 DB는 이 DB의 기업 relation에서 찾는다
-    # 값을 넣을 열은 DB 스키마를 읽어 정한다(app/notion_store.py의 JOB_ROLES)
+    # 값을 넣을 열은 DB 스키마를 읽어 정한다(app/notion/schema.py의 JOB_ROLES)
 
     use_playwright: bool = True
     http_timeout_sec: float = 15.0

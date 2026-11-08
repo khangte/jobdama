@@ -7,8 +7,8 @@ from dataclasses import replace
 from datetime import date
 from functools import lru_cache
 
-from app.collection.collect_config import CAREER_YEARS, CHOICES, PROVINCE_NAMES, REGION_NAMES, CollectConfig
-from app.models import Posting
+from app.collection.collect_config import CAREER_YEARS, CHOICES, CollectConfig
+from app.models import PROVINCE_NAMES, REGION_NAMES, Posting
 
 _RANK = {None: 0, "신입": 0, "신입/경력": 0, "경력무관": 0, "1년 이상": 1, "2년 이상": 2, "3년 이상": 3}
 _YEARS_RE = re.compile(r"(\d{1,2})\s*(?:년\s*(?:차\s*)?(?:이상|↑)|(?:년\s*(?:차\s*)?)?[~\-–]\s*\d{1,2}\s*년)")

@@ -33,16 +33,6 @@ CHOICES: dict[str, dict[str, str]] = {
     "salary": {**_ANY, "3000": "3,000만 원 이상", "4000": "4,000만 원 이상", "5000": "5,000만 원 이상"},
     "sort": {**_ANY, "latest": "최신순", "relevance": "관련도순"},
 }
-# 근무지 키 → 선별에서 주소에 있는지 볼 시·도 이름(별칭 포함). "충청" 같은 단독 별칭은 북·남을 못 가르므로 뺀다
-REGION_NAMES: dict[str, tuple[str, ...]] = {
-    "seoul_gyeonggi": ("서울", "경기"), "seoul": ("서울",), "gyeonggi": ("경기",), "incheon": ("인천",),
-    "busan": ("부산",), "daegu": ("대구",), "gwangju": ("광주",), "daejeon": ("대전",), "ulsan": ("울산",),
-    "sejong": ("세종",), "gangwon": ("강원",), "chungbuk": ("충북", "충청북도"), "chungnam": ("충남", "충청남도"),
-    "jeonbuk": ("전북", "전라북도"), "jeonnam": ("전남", "전라남도"), "gyeongbuk": ("경북", "경상북도"),
-    "gyeongnam": ("경남", "경상남도"), "jeju": ("제주",),
-}
-# REGION_NAMES에 나오는 모든 시·도 이름을 중복 없이 모은 목록(주소에서 시·도를 찾을 때 쓴다)
-PROVINCE_NAMES: tuple[str, ...] = tuple(dict.fromkeys(n for names in REGION_NAMES.values() for n in names))
 # 경력 선택 키 → 허용하는 최대 경력 연차
 CAREER_YEARS = {"new": 0, "upto1": 1, "upto2": 2}
 

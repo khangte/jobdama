@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from app.collect import AlreadyRunning, CollectRunner, NotionNotReady, load_last
+from app.collect_runner import AlreadyRunning, CollectRunner, NotionNotReady, load_last
 from app.collection.collect_config import CONFIG_PROBLEM, CollectConfig, save_config
 from app.collection.fetcher import FetchError
 from app.collection.listing import ListingSource
@@ -226,7 +226,7 @@ def test_update_config_write_failure_keeps_old(tmp_path, monkeypatch):
     def boom(path, cfg):
         raise OSError("disk full")
 
-    monkeypatch.setattr("app.collect.save_config", boom)
+    monkeypatch.setattr("app.collect_runner.save_config", boom)
     with pytest.raises(OSError):
         runner.update_config(CollectConfig(max_per_site=5))
     assert runner.config is old

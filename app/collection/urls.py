@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import ipaddress
 import re
-from dataclasses import dataclass, field
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+from app.models import NormalizedURL, Site
 
 # 공고 식별값이 아닌 추적·유입 파라미터
 TRACKING_PARAMS = {
@@ -23,25 +24,6 @@ TRACKING_PARAMS = {
 
 class UnsupportedURL(ValueError):
     pass
-
-
-@dataclass(frozen=True)
-class Site:
-    key: str
-    name: str
-    hosts: tuple[str, ...]          # 허용 호스트(정확히 일치). '*.' 로 시작하면 하위 도메인 허용
-    js_rendered: bool = False       # httpx 응답에 공고 내용이 없을 가능성이 커서 Playwright 우선
-    verified: bool = True           # 실제 공고 HTML로 파서를 확인했는지
-
-    def host_allowed(self, host: str) -> bool:
-        host = (host or "").lower()
-        for h in self.hosts:
-            if h.startswith("*."):
-                if host.endswith(h[1:]) and host != h[2:]:
-                    return True
-            elif host == h:
-                return True
-        return False
 
 
 SARAMIN = Site("saramin", "사람인", ("www.saramin.co.kr", "saramin.co.kr", "m.saramin.co.kr"))
@@ -63,16 +45,6 @@ EXCLUDED_HOSTS: dict[str, str] = {
     "programmers.co.kr": "프로그래머스",
     "school.programmers.co.kr": "프로그래머스",
 }
-
-
-@dataclass(frozen=True)
-class NormalizedURL:
-    site: Site
-    url: str                       # 노션에 저장할 정규화 URL
-    ident: str                     # 사이트 안의 공고 번호(자체 사이트는 정규화 URL)
-    # 노션 URL 속성 중복 조회 조건 (연산자, 값). equals(url)은 항상 포함한다.
-    match: tuple[tuple[str, str], ...] = field(default=())
-    extra: dict = field(default_factory=dict, compare=False, hash=False)
 
 
 def site_for_host(host: str) -> Site | None:

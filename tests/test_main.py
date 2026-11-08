@@ -3,18 +3,21 @@
 import asyncio
 import json
 import re
+from types import SimpleNamespace
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 import app.main as main_mod
-from app.config import Settings
+import app.routes.notion as notion_routes
+from app.config import Settings, get_settings
 from app.main import app
-from app.notion_store import NotionStore
+from app.notion.store import NotionStore
+from app.routes.deps import get_runner, get_state
 from app.service import JobService
 from app.collection.collect_config import CollectConfig
-from tests.test_collect import make as make_runner
+from tests.test_collect_runner import make as make_runner
 
 
 def test_foreign_host_rejected():
@@ -94,7 +97,7 @@ def setup_client(monkeypatch, tmp_path):
     env = tmp_path / ".env"
     env.write_text(ENV_TEXT)
     monkeypatch.chdir(tmp_path)  # 앱이 ./.env를 건드리는지 확인하려고 임시 폴더에서 돌린다
-    for key in main_mod.ENV_KEYS:
+    for key in notion_routes.ENV_KEYS:
         monkeypatch.delenv(key.upper(), raising=False)
     created = []
 
@@ -110,7 +113,7 @@ def setup_client(monkeypatch, tmp_path):
         return store
 
     real_store, real_httpx = NotionStore, httpx.AsyncClient
-    monkeypatch.setattr(main_mod, "NotionStore", make_store)
+    monkeypatch.setattr(notion_routes, "NotionStore", make_store)
     old = OldStore()
     st = main_mod.app.state
     # raising=False: 테스트가 끝나면 app.state를 원래대로 되돌린다
@@ -129,7 +132,7 @@ async def test_notion_connect_without_touching_env(setup_client):
             "notion_token": "ntn_abc",
             "job_db": f"https://www.notion.so/ws/Jobs-{JOB_ID}?v={'9' * 32}",
         })
-        await asyncio.gather(*main_mod._closing)
+        await asyncio.gather(*notion_routes.closing)
     assert res.status_code == 200, res.text
     assert res.json() == {"notion_ready": True, "job_data_source_id": JOB_ID, "company_data_source_id": COMPANY_DS_ID}
     assert env.read_text() == ENV_TEXT
@@ -147,7 +150,7 @@ async def test_disconnect_then_reconnect_from_web(setup_client):
         assert (await ac.post("/api/v1/notion/connect", json=VALID)).status_code == 200
         connected = st.store
         res = await ac.post("/api/v1/notion/disconnect")
-        await asyncio.gather(*main_mod._closing)
+        await asyncio.gather(*notion_routes.closing)
         assert res.status_code == 200 and res.json() == {"notion_ready": False}
         assert not st.service.notion_ready and st.problems and st.service.store is st.store is not connected
         assert st.settings.notion_token == st.settings.job_data_source_id == st.store.company_source_id == ""
@@ -157,7 +160,7 @@ async def test_disconnect_then_reconnect_from_web(setup_client):
         assert st.service.notion_ready
         assert (await ac.post("/api/v1/notion/disconnect")).status_code == 200
         assert (await ac.post("/api/v1/notion/disconnect")).status_code == 200
-        await asyncio.gather(*main_mod._closing)
+        await asyncio.gather(*notion_routes.closing)
     assert env.read_text() == ENV_TEXT
 
 
@@ -184,7 +187,7 @@ async def test_notion_page_follows_connection_state(setup_client):
         assert 'data-notion-action="disconnect"' not in page.text
         assert 'disabled' in page.text
         assert VALID["notion_token"] not in page.text
-        await asyncio.gather(*main_mod._closing)
+        await asyncio.gather(*notion_routes.closing)
 
 
 async def test_connected_page_lists_blank_columns(setup_client):
@@ -195,7 +198,7 @@ async def test_connected_page_lists_blank_columns(setup_client):
         assert "비워 두는 열 1개" in page.text and "경력 열을 정하지 못해 비워 둠" in page.text
         assert 'id="recheck"' in page.text
         assert (await ac.post("/api/v1/notion/disconnect")).status_code == 200
-        await asyncio.gather(*main_mod._closing)
+        await asyncio.gather(*notion_routes.closing)
 
 
 def test_disconnect_rejects_foreign_origin(setup_client):
@@ -266,7 +269,7 @@ async def test_recheck_ignores_result_from_replaced_store(monkeypatch):
     monkeypatch.setattr(st, "store", SlowStore(), raising=False)
     monkeypatch.setattr(st, "problems", [], raising=False)
     monkeypatch.setattr(st, "service", service, raising=False)
-    await main_mod.recheck(type("R", (), {"app": main_mod.app})())
+    await notion_routes.recheck(st)
     assert service.notion_ready and st.problems == []
 
 
@@ -467,7 +470,7 @@ async def test_settings_put_write_error_500(collect_client, monkeypatch):
     def boom(path, cfg):
         raise OSError("disk full")
 
-    monkeypatch.setattr("app.collect.save_config", boom)
+    monkeypatch.setattr("app.collect_runner.save_config", boom)
     async with client:
         res = await client.put("/api/v1/collect/settings", json={"keyword": "x"})
     assert res.status_code == 500 and res.json() == {"problems": ["설정을 저장하지 못했어요."]} and runner.config.keyword == "python"
@@ -546,3 +549,64 @@ async def test_collect_page_ignores_wrong_shape_result_file(collect_client, tmp_
     async with client:
         res = await client.get("/collect")
     assert res.status_code == 200 and "아직 실행 기록이 없어요." in res.text
+
+
+EXPECTED_ROUTES = {
+    ("GET", "/", 200), ("GET", "/jobs", 200), ("GET", "/health", 200),
+    ("GET", "/collect", 200), ("GET", "/collect/results", 200),
+    ("POST", "/api/v1/jobs", 202), ("GET", "/api/v1/jobs", 200), ("POST", "/api/v1/recheck", 200),
+    ("POST", "/api/v1/notion/connect", 200), ("POST", "/api/v1/notion/disconnect", 200),
+    ("POST", "/api/v1/collect", 202), ("GET", "/api/v1/collect/last", 200),
+    ("GET", "/api/v1/collect/settings", 200), ("PUT", "/api/v1/collect/settings", 200),
+}
+
+
+def test_route_table_unchanged():
+    """라우터를 나눠도 경로·메서드·상태코드가 그대로인지 고정한다."""
+    paths = app.openapi()["paths"]
+    assert {(m.upper(), p, min(map(int, op["responses"]))) for p, ops in paths.items() for m, op in ops.items()} == EXPECTED_ROUTES
+
+
+def test_lifespan_starts_and_stops_without_notion(monkeypatch, tmp_path):
+    """토큰 없이 서버가 뜨고 화면을 그린 뒤 정상 종료되는지 확인한다."""
+    monkeypatch.chdir(tmp_path)  # 프로젝트 .env를 읽지 않게 한다
+    monkeypatch.delenv("NOTION_TOKEN", raising=False)
+    monkeypatch.delenv("JOB_DATA_SOURCE_ID", raising=False)
+    monkeypatch.setenv("USE_PLAYWRIGHT", "false")
+    get_settings.cache_clear()
+    try:
+        with TestClient(app, base_url="http://localhost") as client:
+            assert client.get("/health").json() == {"ok": True, "notion_ready": False}
+            assert client.get("/").status_code == 200
+    finally:
+        get_settings.cache_clear()
+
+
+def test_state_dependency_can_be_overridden():
+    """app.state를 건드리지 않고 상태 전체를 바꿔 끼울 수 있다."""
+    fake = SimpleNamespace(service=JobService(None, OldStore(), notion_ready=True))
+    app.dependency_overrides[get_state] = lambda: fake
+    try:
+        res = TestClient(app, base_url="http://localhost").get("/health")
+    finally:
+        app.dependency_overrides.clear()
+    assert res.json() == {"ok": True, "notion_ready": True}
+
+
+def test_runner_dependency_can_be_overridden(tmp_path):
+    """수집 실행기만 따로 바꿔 끼울 수 있다."""
+    runner, _, _ = make_runner(tmp_path)
+    app.dependency_overrides[get_runner] = lambda: runner
+    try:
+        res = TestClient(app, base_url="http://localhost").get("/api/v1/collect/last")
+    finally:
+        app.dependency_overrides.clear()
+    assert res.json() == {"running": False, "run": None}
+
+
+def test_connect_validates_body_before_origin_check(setup_client):
+    """잘못된 본문은 출처 검사보다 먼저 422로 거절된다."""
+    client, _, _, created = setup_client
+    res = client.post("/api/v1/notion/connect", headers={"Origin": "https://evil.example.com"},
+                      json={"notion_token": "a\nb", "job_db": JOB_ID})
+    assert res.status_code == 422 and not created

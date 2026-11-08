@@ -6,8 +6,9 @@ import pytest
 from pydantic import ValidationError
 
 from app.collection.collect_config import (
-    CHOICES, CONFIG_PROBLEM, REGION_NAMES, SITE_KEYS, CollectConfig, load_config, save_config,
+    CHOICES, CONFIG_PROBLEM, SITE_KEYS, CollectConfig, load_config, save_config,
 )
+from app.models import REGION_NAMES
 
 
 def first_error(**kw):

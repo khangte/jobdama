@@ -10,6 +10,51 @@ KST = ZoneInfo("Asia/Seoul")
 
 SECTION_KEYS = ("주요 업무", "자격 요건", "우대 사항", "전형 절차")
 
+# 근무지 키 → 선별에서 주소에 있는지 볼 시·도 이름(별칭 포함). "충청" 같은 단독 별칭은 북·남을 못 가르므로 뺀다
+REGION_NAMES: dict[str, tuple[str, ...]] = {
+    "seoul_gyeonggi": ("서울", "경기"), "seoul": ("서울",), "gyeonggi": ("경기",), "incheon": ("인천",),
+    "busan": ("부산",), "daegu": ("대구",), "gwangju": ("광주",), "daejeon": ("대전",), "ulsan": ("울산",),
+    "sejong": ("세종",), "gangwon": ("강원",), "chungbuk": ("충북", "충청북도"), "chungnam": ("충남", "충청남도"),
+    "jeonbuk": ("전북", "전라북도"), "jeonnam": ("전남", "전라남도"), "gyeongbuk": ("경북", "경상북도"),
+    "gyeongnam": ("경남", "경상남도"), "jeju": ("제주",),
+}
+# REGION_NAMES에 나오는 모든 시·도 이름을 중복 없이 모은 목록(주소에서 시·도를 찾을 때 쓴다)
+PROVINCE_NAMES: tuple[str, ...] = tuple(dict.fromkeys(n for names in REGION_NAMES.values() for n in names))
+
+
+@dataclass(frozen=True)
+class Site:
+    """지원하는 채용 사이트 한 곳의 식별 정보."""
+
+    key: str
+    name: str
+    hosts: tuple[str, ...]          # 허용 호스트(정확히 일치). '*.' 로 시작하면 하위 도메인 허용
+    js_rendered: bool = False       # httpx 응답에 공고 내용이 없을 가능성이 커서 Playwright 우선
+    verified: bool = True           # 실제 공고 HTML로 파서를 확인했는지
+
+    def host_allowed(self, host: str) -> bool:
+        """호스트가 이 사이트의 허용 목록에 있는지 돌려준다."""
+        host = (host or "").lower()
+        for h in self.hosts:
+            if h.startswith("*."):
+                if host.endswith(h[1:]) and host != h[2:]:
+                    return True
+            elif host == h:
+                return True
+        return False
+
+
+@dataclass(frozen=True)
+class NormalizedURL:
+    """검증·정규화를 마친 공고 URL."""
+
+    site: Site
+    url: str                       # 노션에 저장할 정규화 URL
+    ident: str                     # 사이트 안의 공고 번호(자체 사이트는 정규화 URL)
+    # 노션 URL 속성 중복 조회 조건 (연산자, 값). equals(url)은 항상 포함한다.
+    match: tuple[tuple[str, str], ...] = field(default=())
+    extra: dict = field(default_factory=dict, compare=False, hash=False)
+
 
 class JobStatus(str, Enum):
     PROCESSING = "처리 중"

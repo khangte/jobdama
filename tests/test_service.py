@@ -8,7 +8,7 @@ from app.collection.fetcher import BlockedTarget, FetchError
 from dataclasses import replace
 
 from app.models import JobStatus
-from app.notion_store import normalize_title, page_url
+from app.notion.pages import normalize_title, page_url
 from app.collection.collector import Collector
 from app.service import JobService, Screening
 from tests.helpers import load

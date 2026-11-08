@@ -18,7 +18,8 @@ from app.collection.collector import Collector
 from app.collection.fetcher import FetchError
 from app.collection.urls import NormalizedURL, UnsupportedURL, normalize
 from app.models import Job, JobStatus, Posting
-from app.notion_store import is_closed, is_uncertain_write_error, page_url
+from app.notion.errors import is_uncertain_write_error
+from app.notion.pages import is_closed, page_url
 from app.parsers.common import today_kst
 
 log = logging.getLogger(__name__)
