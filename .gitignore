@@ -12,3 +12,9 @@ snapshots/
 AGENTS.md
 .claude/
 CLAUDE.md
+team/
+.team/
+docs/audit/
+docs/research/
+docs/superpowers/
+data/

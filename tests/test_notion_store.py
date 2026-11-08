@@ -9,8 +9,10 @@ from notion_client.errors import HTTPResponseError
 
 from app.config import Settings
 from app.notion_store import (
-    COMPANY_ROLES, JOB_ROLES, NotionError, NotionStore, _pick_option, build_children, extract_notion_id, resolve_props,
+    COMPANY_ROLES, JOB_ROLES, NotionError, NotionStore, _pick_option, build_children, extract_notion_id, is_closed,
+    normalize_title, resolve_props,
 )
+from app.models import Posting
 from app.parsers.sites import saramin
 from app.collection.urls import normalize
 from tests.helpers import load, parse_saramin
@@ -425,3 +427,108 @@ async def test_other_errors_are_not_retried():
     with pytest.raises(HTTPResponseError):
         await store.find_or_create_company("카카오")
     assert calls == ["POST"]
+
+
+# ---------------------------------------------------------------- 제목 중복·기업 조회·종료 판별
+
+def test_normalize_title_strips_prefix_company_spaces():
+    a = normalize_title("[와이온랩] [파견/대행] Python 백엔드 개발자", "와이온랩")
+    assert a == normalize_title("[와이온랩] Python  백엔드개발자", "와이온랩") == "python백엔드개발자"
+
+
+def test_normalize_title_removes_company_in_body():
+    assert normalize_title("[(주)와이온랩] (주)와이온랩 Python 백엔드", "(주)와이온랩") == normalize_title("[와이온랩] Python 백엔드", "와이온랩")
+
+
+def test_normalize_title_different():
+    assert normalize_title("[A] Python 백엔드", "A") != normalize_title("[A] Python 데이터 엔지니어", "A")
+
+
+def test_normalize_title_keeps_distinguishing_brackets():
+    n = lambda t: normalize_title(t, "A")
+    assert n("(신입) 백엔드 개발자") != n("(경력) 백엔드 개발자")
+    assert n("[서울] 백엔드 개발자") != n("[부산] 백엔드 개발자")
+    assert n("[신입/경력] 백엔드") != n("[경력] 백엔드")
+
+
+def test_normalize_title_strips_company_like_brackets():
+    assert normalize_title("[서울반도체] 백엔드", "서울반도체") == normalize_title("백엔드", "서울반도체") == "백엔드"
+    assert normalize_title("[서울반도체] 백엔드", None) == "백엔드"
+
+
+def test_normalize_title_empty_when_only_brackets():
+    assert normalize_title("[채용공고]", "A") == ""
+
+
+def test_is_closed():
+    assert is_closed({"properties": {"지원 단계": {"type": "status", "status": {"name": "⏹️ 종료"}}}})
+    assert not is_closed({"properties": {"지원 단계": {"type": "status", "status": {"name": "📌 시작 전"}}}})
+    assert not is_closed({"properties": {"지원 단계": {"type": "status", "status": None}}})
+
+
+def job_page(pid: str, title: str, url: str) -> dict:
+    return {"object": "page", "id": pid, "url": f"https://www.notion.so/{pid}", "properties": {
+        "공고명": {"type": "title", "title": [{"plain_text": title}]}, "URL": {"type": "url", "url": url}}}
+
+
+def posting(title: str, url: str) -> Posting:
+    return Posting(source="jobkorea", url=url, title=title, raw_title=title, company="와이온랩")
+
+
+def title_store(pages: list[dict]):
+    """페이지 목록을 돌려주고 요청을 기록하는 store."""
+    seen: list[dict] = []
+
+    def handler(req: httpx.Request):
+        assert req.url.path == f"/v1/data_sources/{JOB_DS}/query"
+        seen.append(json.loads(req.content))
+        return httpx.Response(200, json={"object": "list", "results": pages, "has_more": False})
+
+    return make_store(handler), seen
+
+
+async def test_find_by_title_jobkorea_repost():
+    old = job_page("old", "[와이온랩] Python 백엔드 개발자", "https://www.jobkorea.co.kr/Recruit/GI_Read/49947457")
+    store, seen = title_store([old])
+    found = await store.find_by_title(
+        posting("[와이온랩] Python 백엔드 개발자", "https://www.jobkorea.co.kr/Recruit/GI_Read/49999999"), "company-1")
+    assert found["id"] == "old"
+    assert seen[0]["filter"] == {"property": "기업명", "relation": {"contains": "company-1"}}
+
+
+async def test_find_by_title_empty_key_returns_none():
+    store, seen = title_store([job_page("old", "[채용공고]", "u")])
+    assert await store.find_by_title(posting("[채용공고]", "u2"), "company-1") is None
+    assert seen == []
+
+
+async def test_find_by_title_cross_site():
+    old = job_page("old", "[와이온랩] [파견/대행] Python 백엔드 개발자", "https://www.jobkorea.co.kr/Recruit/GI_Read/1")
+    store, _ = title_store([old])
+    new = posting("[와이온랩] Python 백엔드 개발자", "https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=5")
+    assert (await store.find_by_title(new, "company-1"))["id"] == "old"
+
+
+async def test_find_by_title_none_when_titles_differ():
+    store, _ = title_store([job_page("old", "[와이온랩] 데이터 엔지니어", "u")])
+    assert await store.find_by_title(posting("[와이온랩] Python 백엔드 개발자", "u2"), "company-1") is None
+
+
+async def test_find_by_title_without_company_page_skips_query():
+    store, seen = title_store([job_page("old", "[와이온랩] Python 백엔드 개발자", "u")])
+    assert await store.find_by_title(posting("[와이온랩] Python 백엔드 개발자", "u2"), None) is None
+    assert seen == []
+
+
+async def test_find_company_read_only():
+    calls = []
+
+    def handler(req: httpx.Request):
+        calls.append((req.method, req.url.path))
+        assert req.url.path.endswith("/query"), "읽기 전용이라 생성 요청이 없어야 함"
+        return httpx.Response(200, json={"object": "list", "has_more": False, "results": [company_page("c-1", "와이온랩")]})
+
+    store = make_store(handler)
+    assert await store.find_company("(주)와이온랩") == "c-1"
+    assert await store.find_company("없는회사") is None
+    assert all(path.endswith("/query") for _, path in calls)

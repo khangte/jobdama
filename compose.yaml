@@ -23,3 +23,5 @@ services:
           create_host_path: false
       # 진단 명령(app.snapshot) 결과를 호스트 폴더로
       - ./snapshots:/app/snapshots
+      # 자동 수집 마지막 결과
+      - ./data:/app/data

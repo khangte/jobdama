@@ -1,0 +1,180 @@
+{
+ "message": "포지션 리스트가 조회되었습니다.",
+ "status": 200,
+ "code": "P004",
+ "result": {
+  "totalCount": 309,
+  "page": 1,
+  "keyword": "python",
+  "keywordType": "stack",
+  "positions": [
+   {
+    "id": 55330482,
+    "jobCategory": "서버/백엔드 개발자",
+    "logo": "https://cdn.jumpit.co.kr/lg/images/hmlee_4/20214504204538371_246_242.webp",
+    "imagePath": "https://cdn.jumpit.co.kr/lg/images/jnyoon_106/20250414110402628_567_378.webp",
+    "title": "Application성능관리솔루션개발자(신입)",
+    "companyName": "브레인즈컴퍼니",
+    "techStacks": [
+     ".NET",
+     "C#",
+     "C++",
+     "Java",
+     "JavaScript",
+     "Linux",
+     "<span>Python</span>",
+     "Spring",
+     "Spring Boot",
+     "TCP/IP"
+    ],
+    "scrapCount": 7,
+    "viewCount": 457,
+    "newcomer": true,
+    "minCareer": 0,
+    "maxCareer": 0,
+    "locations": [
+     "서울 성동구"
+    ],
+    "alwaysOpen": false,
+    "closedAt": "2026-11-17T23:59:59",
+    "serialNumber": "2208180932",
+    "encodedSerialNumber": "MjIwODE4MDkzMg==",
+    "celebration": 50,
+    "scraped": false,
+    "applied": false
+   },
+   {
+    "id": 55396303,
+    "jobCategory": "서버/백엔드 개발자",
+    "logo": "https://cdn.jumpit.co.kr/lg/images/dabin_3358/20254703154718446_302_302.webp",
+    "imagePath": "https://cdn.jumpit.co.kr/lg/images/company/5748101528/20241319191304228/riuyn4_w3b7-g81ron_workenv-bg.webp",
+    "title": "백엔드 개발자 채용",
+    "companyName": "와이톤",
+    "techStacks": [
+     "Git",
+     "Jira",
+     "MySQL",
+     "<span>Python</span>",
+     "Spring",
+     "TypeScript",
+     "AWS"
+    ],
+    "viewCount": 168,
+    "newcomer": false,
+    "minCareer": 2,
+    "maxCareer": 7,
+    "locations": [
+     "서울 강남구"
+    ],
+    "alwaysOpen": false,
+    "closedAt": "2026-11-25T23:59:59",
+    "serialNumber": "5748101528",
+    "encodedSerialNumber": "NTc0ODEwMTUyOA==",
+    "celebration": 50,
+    "scraped": false,
+    "applied": false
+   },
+   {
+    "id": 55277466,
+    "jobCategory": "서버/백엔드 개발자",
+    "logo": "https://cdn.jumpit.co.kr/images/choige_251860/20264813174814798_150_142.png",
+    "imagePath": "https://cdn.jumpit.co.kr/images/201830/20244310124301718_4608_2184.jpg",
+    "title": "Backend Developer (Data Platform)",
+    "companyName": "오디케이미디어",
+    "techStacks": [
+     "Docker",
+     "Git",
+     "Java",
+     "Kubernetes",
+     "MySQL",
+     "PHP",
+     "PostgreSQL",
+     "<span>Python</span>",
+     "REST API",
+     "AWS"
+    ],
+    "scrapCount": 8,
+    "viewCount": 279,
+    "newcomer": false,
+    "minCareer": 5,
+    "maxCareer": 12,
+    "locations": [
+     "서울 강남구"
+    ],
+    "alwaysOpen": false,
+    "closedAt": "2026-11-11T23:59:59",
+    "serialNumber": "1158602089",
+    "encodedSerialNumber": "MTE1ODYwMjA4OQ==",
+    "celebration": 50,
+    "scraped": false,
+    "applied": false
+   },
+   {
+    "id": 55242293,
+    "jobCategory": "서버/백엔드 개발자,프론트엔드 개발자",
+    "logo": "https://cdn.jumpit.co.kr/lg/images/320423/20253914143948081/profile-image.webp",
+    "imagePath": "https://cdn.jumpit.co.kr/lg/images/chr_252204/20250814170821815_1440_1440.webp",
+    "title": "쇼핑몰/헬스케어 서비스 개발자",
+    "companyName": "보미오라한의원",
+    "techStacks": [
+     "CSS 3",
+     "HTML5",
+     "JavaScript",
+     "Node.js",
+     "PHP"
+    ],
+    "scrapCount": 6,
+    "viewCount": 330,
+    "newcomer": false,
+    "minCareer": 3,
+    "maxCareer": 10,
+    "locations": [
+     "서울 강남구"
+    ],
+    "alwaysOpen": false,
+    "closedAt": "2026-11-08T23:59:59",
+    "serialNumber": "2030576666",
+    "encodedSerialNumber": "MjAzMDU3NjY2Ng==",
+    "celebration": 50,
+    "scraped": false,
+    "applied": false
+   },
+   {
+    "id": 55329966,
+    "jobCategory": "서버/백엔드 개발자",
+    "logo": "https://cdn.jumpit.co.kr/images/jnyoon_106/20265616125652502_189_189.png",
+    "imagePath": "https://cdn.jumpit.co.kr/images/company/4988101637/20262016102004001/tf0kjr36_s2xo-1phb9g7_workenv-bg.jpg",
+    "title": "AX Engineer",
+    "companyName": "윗유",
+    "techStacks": [
+     "Django",
+     "Docker",
+     "Flask",
+     "Git",
+     "Kubernetes",
+     "OAuth2",
+     "<span>Python</span>",
+     "REST API",
+     "SQL",
+     "FastAPI"
+    ],
+    "scrapCount": 3,
+    "viewCount": 209,
+    "newcomer": false,
+    "minCareer": 1,
+    "maxCareer": 20,
+    "locations": [
+     "서울 강남구"
+    ],
+    "alwaysOpen": false,
+    "closedAt": "2026-11-17T23:59:59",
+    "serialNumber": "4988101637",
+    "encodedSerialNumber": "NDk4ODEwMTYzNw==",
+    "celebration": 50,
+    "scraped": false,
+    "applied": false
+   }
+  ],
+  "emptyPosition": false
+ }
+}

@@ -1,7 +1,7 @@
 # jobdama
 
 채용공고 링크를 붙여넣으면 노션 "채용 지원 관리 DB"에 페이지를 만들어 주는 로컬 웹이다.
-공고 선별, 직무 분류, 직무적합성 판정은 하지 않는다.
+링크 저장은 공고를 선별하지 않고 그대로 저장한다. 자동 수집은 직무·조건(근무지, 경력, 마감, 직무 단어)으로 선별해 맞는 공고만 저장한다. 직무 분류와 직무적합성 판정은 하지 않는다.
 
 ## 지원 사이트
 
@@ -33,6 +33,7 @@ Docker Desktop(WSL 연동)이 켜져 있으면 컨테이너가 자동으로 다�
 ```bash
 cd ~/projects/jobdama
 cp .env.example .env && nano .env      # 처음 한 번: NOTION_TOKEN, data source ID 입력
+mkdir -p data snapshots                # 처음 한 번: 없으면 Docker가 root 소유로 만들어 조건·결과를 저장하지 못한다
 docker compose up -d --build           # 빌드 + 실행, 코드 업데이트 후에도 동일 (처음엔 Chromium 포함 몇 분 걸림)
 docker compose logs -f                 # 로그 보기 (Ctrl+C로 빠져나옴)
 docker compose stop                    # 끄기
@@ -128,6 +129,27 @@ Windows 브라우저에서 `http://localhost:8000`을 연다. 종료는 터미�
 
 페이지 본문: 공고 요약(기업, 출처, 근무지, 경력 조건, 고용 형태, 마감일, 수집일), 주요 업무, 자격 요건, 우대 사항, 전형 절차, 원문 링크.
 요약하지 않고 원문 구간을 발췌하며, 못 찾은 항목은 "공고에서 확인 불가"로 적는다.
+
+## 자동 수집
+
+사람인·잡코리아·원티드·인크루트·점핏 5곳의 검색 목록에서 사이트당 최대 20건(기본값)을 골라, 조건에 맞는 공고만 노션에 저장한다.
+링크 붙여넣기 저장에는 이 선별을 적용하지 않는다. 조건은 화면 /collect 위쪽 수집 조건에서 바꾸고 data/collect_settings.json에 저장된다. 저장한 조건은 다음 수집부터 적용된다.
+
+- 실행: `POST /api/v1/collect` (본문 없으면 스케줄 실행, 이미 실행 중이면 409, 노션 미연결이면 503)
+- 조건 조회·저장: `GET`·`PUT /api/v1/collect/settings` (`curl -fsS -X PUT http://localhost:8765/api/v1/collect/settings -H 'Content-Type: application/json' -d '{"keyword": "데이터 엔지니어", "region": "seoul"}'`, 안 보낸 항목은 기본값)
+- 마지막 결과: `GET /api/v1/collect/last` (`data/last_collect.json`, 재시작 뒤에도 유지)
+- 화면: http://localhost:8765/collect
+- 미리보기(노션에 저장하지 않음): `curl -fsS -X POST http://localhost:8765/api/v1/collect -H 'Content-Type: application/json' -d '{"dry_run": true}'`
+- 같은 호스트에는 1.0~1.5초 간격으로 한 건씩 요청하고, 봇 확인·차단 화면은 우회하지 않고 그 사이트를 중단한다.
+- PC가 꺼져 있으면 실행되지 않는다.
+
+```bash
+# WSL cron (crontab -e). 시스템 시간대가 KST가 아니면 CRON_TZ를 둔다
+CRON_TZ=Asia/Seoul
+30 9 * * * curl -fsS -X POST http://localhost:8765/api/v1/collect
+# Windows 작업 스케줄러
+schtasks /Create /SC DAILY /ST 09:30 /TN jobdama-collect /TR "curl.exe -fsS -X POST http://localhost:8765/api/v1/collect"
+```
 
 ## 6. 동작 규칙
 

@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     use_playwright: bool = True
     http_timeout_sec: float = 15.0
     max_jobs_shown: int = 50
+    collect_result_path: str = "data/last_collect.json"  # 자동 수집 마지막 결과
+    collect_config_path: str = "data/collect_settings.json"  # 자동 수집 조건
 
 
 @lru_cache

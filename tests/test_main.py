@@ -1,6 +1,8 @@
 """Host 헤더 확인 (DNS rebinding 방어)과 노션 연결·해제 엔드포인트."""
 
 import asyncio
+import json
+import re
 
 import httpx
 import pytest
@@ -11,6 +13,8 @@ from app.config import Settings
 from app.main import app
 from app.notion_store import NotionStore
 from app.service import JobService
+from app.collection.collect_config import CollectConfig
+from tests.test_collect import make as make_runner
 
 
 def test_foreign_host_rejected():
@@ -33,7 +37,9 @@ def test_static_files_revalidate():
 
 def test_api_routes_are_versioned():
     paths = set(app.openapi()["paths"])  # Swagger에 보이는 경로
-    assert {"/api/v1/jobs", "/api/v1/recheck", "/api/v1/notion/connect", "/api/v1/notion/disconnect", "/jobs", "/health"} <= paths
+    assert {"/api/v1/jobs", "/api/v1/recheck", "/api/v1/notion/connect", "/api/v1/notion/disconnect", "/jobs", "/health",
+            "/api/v1/collect", "/api/v1/collect/last", "/api/v1/collect/settings", "/collect", "/collect/results"} <= paths
+    assert "/collect/settings" not in paths
     assert not any(p.startswith("/api/") and not p.startswith("/api/v1/") for p in paths)
     assert TestClient(app, base_url="http://localhost").get("/api/jobs").status_code == 404
 
@@ -262,3 +268,281 @@ async def test_recheck_ignores_result_from_replaced_store(monkeypatch):
     monkeypatch.setattr(st, "service", service, raising=False)
     await main_mod.recheck(type("R", (), {"app": main_mod.app})())
     assert service.notion_ready and st.problems == []
+
+
+def test_manual_api_not_screened(setup_client, monkeypatch):
+    client, _, _, _ = setup_client
+    svc = main_mod.app.state.service
+
+    def boom(*a, **k):
+        raise AssertionError("수동 경로는 자동 수집 처리(run_one)를 타면 안 됨")
+
+    monkeypatch.setattr(svc, "run_one", boom, raising=False)
+    res = client.post("/api/v1/jobs", json={"url": "https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=5"})
+    assert res.status_code == 202
+
+
+# ------------------------------------------------------------ 자동 수집 API
+
+@pytest.fixture
+def collect_client(monkeypatch, tmp_path):
+    """수집 실행기를 가짜로 바꾼 ASGI 클라이언트 만들기 함수. (client, runner, service)를 돌려준다."""
+    st = main_mod.app.state
+
+    def build(**kw):
+        runner, _, service = make_runner(tmp_path, **kw)
+        monkeypatch.setattr(st, "collect", runner, raising=False)
+        monkeypatch.setattr(st, "service", service, raising=False)
+        monkeypatch.setattr(st, "settings", Settings(_env_file=None), raising=False)
+        client = httpx.AsyncClient(transport=httpx.ASGITransport(app=main_mod.app), base_url="http://localhost")
+        return client, runner, service
+
+    return build
+
+
+async def test_collect_without_body_accepted(collect_client):
+    client, runner, _ = collect_client(sources=())
+    async with client:
+        res = await client.post("/api/v1/collect")
+        await runner.wait()
+    assert res.status_code == 202 and res.json() == {"started": True, "dry_run": False, "trigger": "schedule"}
+
+
+async def test_collect_dry_run(collect_client):
+    client, runner, _ = collect_client(sources=())
+    async with client:
+        assert (await client.post("/api/v1/collect", json={"dry_run": True})).status_code == 202
+        await runner.wait()
+        last = (await client.get("/api/v1/collect/last")).json()
+    assert last["running"] is False and last["run"]["dry_run"] is True
+
+
+async def test_collect_conflict(collect_client):
+    client, runner, _ = collect_client(delay=0.05)
+    async with client:
+        assert (await client.post("/api/v1/collect")).status_code == 202
+        second = await client.post("/api/v1/collect")
+        await runner.aclose()
+    assert second.status_code == 409
+
+
+async def test_collect_foreign_origin(collect_client):
+    client, runner, _ = collect_client(sources=())
+    async with client:
+        res = await client.post("/api/v1/collect", headers={"origin": "https://evil.example"})
+    assert res.status_code == 403 and not runner.running
+
+
+async def test_collect_notion_not_ready(collect_client):
+    client, _, service = collect_client(sources=())
+    service.notion_ready = False
+    async with client:
+        res = await client.post("/api/v1/collect")
+    assert res.status_code == 503 and "노션 미연결" in res.json()["problems"][0]
+
+
+async def test_collect_last_empty(collect_client):
+    client, _, _ = collect_client(sources=())
+    async with client:
+        res = await client.get("/api/v1/collect/last")
+    assert res.json() == {"running": False, "run": None}
+
+
+async def test_collect_results_not_in_jobs(collect_client):
+    client, runner, _ = collect_client()
+    async with client:
+        assert (await client.post("/api/v1/collect")).status_code == 202
+        await runner.wait()
+        last = (await client.get("/api/v1/collect/last")).json()
+        jobs = (await client.get("/api/v1/jobs")).json()
+    assert last["run"]["items"] and jobs == []
+
+
+# ------------------------------------------------------------ 수집 화면
+
+def _run(items=(), sites=(), **kw):
+    """화면 테스트용 결과 dict."""
+    return {"started_at": "2026-11-08T09:30:00+09:00", "finished_at": "2026-11-08T09:34:00+09:00", "trigger": "screen",
+            "dry_run": False, "error": None, "sites": list(sites), "items": list(items), **kw}
+
+
+def _item(group, title, message="", status=None, css=None):
+    """화면 테스트용 결과 item."""
+    return {"site": "saramin", "title": title, "status": status or group, "css": css or group, "group": group,
+            "message": message, "notion_url": None, "url": "https://example.com/" + title}
+
+
+async def test_collect_page_no_record(collect_client):
+    client, _, _ = collect_client(sources=())
+    async with client:
+        res = await client.get("/collect")
+    assert res.status_code == 200 and "아직 실행 기록이 없어요." in res.text
+    assert 'aria-current="page"' in res.text and 'id="collect-run"' in res.text
+
+
+async def test_collect_page_shows_reason_and_site_error(collect_client):
+    client, runner, _ = collect_client(sources=())
+    site = {"key": "incruit", "name": "인크루트", "candidates": 0, "saved": 0, "exists": 0, "skipped": 0, "failed": 0,
+            "error": "HTTP 403"}
+    runner._last = _run([_item("skipped", "백엔드", "근무지 제외: 부산")], [site], dry_run=True)
+    async with client:
+        res = await client.get("/collect")
+    assert "근무지 제외: 부산" in res.text and "HTTP 403" in res.text and "미리보기" in res.text
+
+
+async def test_collect_button_disabled_while_running(collect_client):
+    client, runner, _ = collect_client(delay=0.05)
+    async with client:
+        await client.post("/api/v1/collect")
+        running = (await client.get("/collect/results")).text
+        await runner.aclose()
+        done = (await client.get("/collect/results")).text
+    assert "disabled" in running and "every 2s" in running and "수집 중이에요" in running
+    assert "disabled" not in done and "every 2s" not in done
+
+
+async def test_collect_button_disabled_when_notion_missing(collect_client):
+    client, _, service = collect_client(sources=())
+    service.notion_ready = False
+    async with client:
+        res = await client.get("/collect")
+    assert "disabled" in res.text and 'href="/"' in res.text and "Notion을 연결해야 수집할 수 있어요." in res.text
+
+
+async def test_collect_filter(collect_client):
+    client, runner, _ = collect_client(sources=())
+    runner._last = _run([_item("saved", "저장공고"), _item("skipped", "제외공고", "경력 제외")])
+    async with client:
+        only = (await client.get("/collect/results?status=skipped")).text
+        bogus = (await client.get("/collect/results?status=bogus")).text
+    assert "제외공고" in only and "저장공고" not in only
+    assert "제외공고" in bogus and "저장공고" in bogus
+
+
+async def test_main_nav_has_collect_link(setup_client):
+    client, *_ = setup_client
+    assert 'href="/collect"' in client.get("/").text
+
+
+# ------------------------------------------------------------ 수집 조건 API
+
+async def test_settings_get_defaults(collect_client):
+    client, _, _ = collect_client(sources=())
+    async with client:
+        body = (await client.get("/api/v1/collect/settings")).json()
+    assert body["settings"] == body["defaults"] and body["problem"] is None
+    assert body["defaults"]["keyword"] == "python" and body["defaults"]["region"] == "seoul_gyeonggi"
+
+
+async def test_settings_put_roundtrip_and_persist(collect_client, tmp_path):
+    client, runner, _ = collect_client(sources=())
+    async with client:
+        body = {**(await client.get("/api/v1/collect/settings")).json()["settings"], "keyword": " 데이터 엔지니어 ", "region": "busan"}
+        res = await client.put("/api/v1/collect/settings", json=body)
+        got = (await client.get("/api/v1/collect/settings")).json()
+    assert res.status_code == 200 and res.json()["settings"]["keyword"] == "데이터 엔지니어"
+    assert runner.config.region == "busan" and (tmp_path / "collect_settings.json").exists()
+    assert got["settings"] == res.json()["settings"] and got["settings"] != got["defaults"]
+
+
+async def test_settings_put_invalid_422(collect_client):
+    client, runner, _ = collect_client(sources=())
+    async with client:
+        res = await client.put("/api/v1/collect/settings", json={"sites": []})
+    detail = res.json()["detail"][0]
+    assert res.status_code == 422 and detail["type"] == "sites" and detail["msg"] == "사이트를 하나 이상 고르세요."
+    assert runner.config.sites == CollectConfig().sites
+
+
+async def test_settings_put_foreign_origin_403(collect_client, tmp_path):
+    client, runner, _ = collect_client(sources=())
+    async with client:
+        res = await client.put("/api/v1/collect/settings", json={"keyword": "x"}, headers={"origin": "https://evil.example"})
+    assert res.status_code == 403 and runner.config.keyword == "python" and not (tmp_path / "collect_settings.json").exists()
+
+
+async def test_settings_put_write_error_500(collect_client, monkeypatch):
+    client, runner, _ = collect_client(sources=())
+
+    def boom(path, cfg):
+        raise OSError("disk full")
+
+    monkeypatch.setattr("app.collect.save_config", boom)
+    async with client:
+        res = await client.put("/api/v1/collect/settings", json={"keyword": "x"})
+    assert res.status_code == 500 and res.json() == {"problems": ["설정을 저장하지 못했어요."]} and runner.config.keyword == "python"
+
+
+# ------------------------------------------------------------ 수집 조건 화면
+
+def _select(html: str, name: str) -> list[tuple[str, str, bool]]:
+    """화면에서 select 하나의 (값, 문구, 선택 여부) 목록을 읽는다."""
+    body = re.search(rf'<select[^>]*name="{name}"[^>]*>(.*?)</select>', html, re.DOTALL).group(1)
+    return [(v, t.strip(), "selected" in attrs) for v, attrs, t in re.findall(r'<option value="([^"]*)"([^>]*)>(.*?)</option>', body, re.DOTALL)]
+
+
+async def test_collect_form_shows_saved_values(collect_client):
+    client, runner, _ = collect_client(sources=())
+    runner.update_config(CollectConfig(keyword="데이터 엔지니어", region="busan", job="backend"))
+    async with client:
+        html = (await client.get("/collect")).text
+    assert 'value="데이터 엔지니어"' in html
+    region = {v: sel for v, _, sel in _select(html, "region")}
+    job = {v: sel for v, _, sel in _select(html, "job")}
+    assert region["busan"] and not region["seoul_gyeonggi"] and job["backend"] and not job["any"]
+    assert 'aria-current="page"' in html and 'id="settings-form"' in html
+
+
+async def test_collect_form_every_select_has_any(collect_client):
+    client, _, _ = collect_client(sources=())
+    async with client:
+        html = (await client.get("/collect")).text
+    for name in ("job", "region", "career", "education", "employment", "salary", "sort"):
+        assert _select(html, name)[0][:2] == ("any", "무관"), name
+
+
+async def test_collect_form_problem_banner(collect_client, tmp_path):
+    (tmp_path / "collect_settings.json").write_text("{broken", encoding="utf-8")
+    client, runner, _ = collect_client(sources=())
+    async with client:
+        broken = (await client.get("/collect")).text
+        runner.update_config(CollectConfig())  # 저장하면 정상 파일로 덮인다
+        ok = (await client.get("/collect")).text
+    assert "설정 파일을 읽지 못해 기본값을 쓰고 있어요." in broken
+    assert "설정 파일을 읽지 못해" not in ok
+
+
+async def test_collect_form_has_defaults_json(collect_client):
+    client, runner, _ = collect_client(sources=())
+    runner.update_config(CollectConfig(keyword="x"))
+    async with client:
+        html = (await client.get("/collect")).text
+    raw = re.search(r'<script type="application/json" id="settings-defaults">(.*?)</script>', html, re.DOTALL).group(1)
+    assert json.loads(raw) == CollectConfig().model_dump()
+
+
+async def test_collect_form_outside_poll_fragment(collect_client):
+    client, _, _ = collect_client(sources=())
+    async with client:
+        page = (await client.get("/collect")).text
+        part = (await client.get("/collect/results")).text
+    assert page.index('id="settings-form"') < page.index('id="collect"')
+    assert 'id="settings-form"' not in part and "선별 조건" not in page and 'href="/collect/settings"' not in page
+
+
+async def test_collect_form_words(collect_client):
+    client, runner, _ = collect_client(sources=())
+    runner.update_config(CollectConfig(title_exclude_words=["xyz"], body_signal_words=[], salary="4000"))
+    async with client:
+        html = (await client.get("/collect")).text
+    assert "xyz" in html and "본문 신호 검사 안 함" in html
+    assert {v: sel for v, _, sel in _select(html, "salary")}["4000"]
+
+
+async def test_collect_page_ignores_wrong_shape_result_file(collect_client, tmp_path):
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "last.json").write_text('{"items": []}')
+    client, _, _ = collect_client(sources=())
+    async with client:
+        res = await client.get("/collect")
+    assert res.status_code == 200 and "아직 실행 기록이 없어요." in res.text

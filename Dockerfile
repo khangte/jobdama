@@ -28,7 +28,7 @@ COPY app ./app
 
 # WSL 기본 사용자와 같은 UID로 실행해 ./snapshots 마운트 폴더에 쓸 수 있게 한다
 RUN useradd --create-home --uid 1000 app \
-    && mkdir -p /app/snapshots \
+    && mkdir -p /app/snapshots /app/data \
     && chown -R app:app /app
 USER app
 

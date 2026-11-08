@@ -10,8 +10,10 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import logging
+import random
 import re
 import socket
+import time
 from urllib.parse import urljoin, urlsplit
 
 import httpx
@@ -105,12 +107,36 @@ async def check_target(url: str, site: Site) -> str | None:
     return ip
 
 
+class Pacer:
+    """같은 호스트로 가는 요청 사이에 min_gap~max_gap초 간격을 둔다(자동 수집용)."""
+
+    def __init__(self, min_gap: float, max_gap: float, *, clock=time.monotonic, sleep=asyncio.sleep, rand=random.uniform):
+        """간격 범위(초)와, 테스트에서 바꿀 수 있는 시계·sleep·난수 함수를 받는다."""
+        self._gap = (min_gap, max_gap)
+        self._clock, self._sleep, self._rand = clock, sleep, rand
+        self._locks: dict[str, asyncio.Lock] = {}
+        self._last: dict[str, float] = {}
+
+    async def wait(self, host: str) -> None:
+        """호스트별로 마지막 요청 뒤 간격이 모자라면 모자란 만큼 기다린 뒤 시각을 기록한다."""
+        async with self._locks.setdefault(host, asyncio.Lock()):
+            if host in self._last:
+                short = self._rand(*self._gap) - (self._clock() - self._last[host])
+                if short > 0:
+                    await self._sleep(short)
+            self._last[host] = self._clock()
+
+
 class HttpFetcher:
+    """httpx로 공고 페이지를 받는다. pacer가 있으면 GET 시도마다 같은 호스트 간격을 둔다."""
+
     name = "httpx"
 
-    def __init__(self, client: httpx.AsyncClient, concurrency: int = 4):
+    def __init__(self, client: httpx.AsyncClient, concurrency: int = 4, pacer: Pacer | None = None):
+        """동시 요청 수(concurrency)와 선택적 호스트 간격 조절기(pacer)를 받는다."""
         self._client = client
         self._sem = asyncio.Semaphore(concurrency)
+        self._pacer = pacer
 
     async def fetch(self, url: str, site: Site) -> tuple[str, str]:
         """(html, 최종 URL)"""
@@ -146,6 +172,8 @@ class HttpFetcher:
             ext = {"sni_hostname": target.host}
             target = target.copy_with(host=ip)
         for attempt in (1, 2):
+            if self._pacer:  # 재시도 GET도 같은 호스트 간격을 지킨다
+                await self._pacer.wait(urlsplit(url).hostname or "")
             try:
                 async with self._client.stream(
                     "GET", target, headers=headers, follow_redirects=False, extensions=ext

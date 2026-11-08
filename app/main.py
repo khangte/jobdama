@@ -4,6 +4,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlsplit
 
 import httpx
@@ -16,8 +17,10 @@ from notion_client.errors import HTTPResponseError
 from pydantic import BaseModel, field_validator
 
 from app.config import get_settings
-from app.collection.fetcher import BrowserFetcher, HttpFetcher
+from app.collect import AlreadyRunning, CollectRunner, NotionNotReady
+from app.collection.fetcher import BrowserFetcher, HttpFetcher, Pacer
 from app.notion_store import NotionError, NotionStore, describe_error
+from app.collection.collect_config import CHOICES, SITE_NAMES, CollectConfig
 from app.collection.collector import Collector
 from app.service import JobService
 
@@ -45,10 +48,14 @@ async def lifespan(app: FastAPI):
     app.state.settings = settings
     app.state.store = store
     app.state.service = service
+    app.state.collect = CollectRunner(
+        service, HttpFetcher(http_client, concurrency=1, pacer=Pacer(1.0, 1.5)), Path(settings.collect_result_path),
+        Path(settings.collect_config_path))
     app.state.problems = problems
     try:
         yield
     finally:
+        await app.state.collect.aclose()  # 실행 중인 수집을 먼저 취소해야 service가 한가해진다
         await service.wait_idle()
         await asyncio.gather(*_closing)
         if browser is not None:
@@ -213,6 +220,85 @@ async def disconnect_notion(request: Request):
     s.service.notion_ready = False
     _close_later(s.service, old)
     return {"notion_ready": False}
+
+
+class CollectIn(BaseModel):
+    """수집 실행 요청 본문."""
+
+    dry_run: bool = False  # True면 노션에서 읽기만 하고 쓰지 않는다
+    trigger: Literal["schedule", "screen"] = "schedule"
+
+
+@api.post("/collect", status_code=202)
+async def start_collect(request: Request, body: CollectIn | None = None):
+    """자동 수집을 백그라운드로 시작한다. 본문 없는 호출은 스케줄 실행으로 본다."""
+    if denied := _foreign_origin(request):
+        return denied
+    body = body or CollectIn()
+    try:
+        request.app.state.collect.start(body.trigger, body.dry_run)
+    except NotionNotReady:
+        return JSONResponse({"problems": ["노션 미연결: 먼저 노션을 연결"]}, status_code=503)
+    except AlreadyRunning:
+        return JSONResponse({"problems": ["이미 수집 실행 중"]}, status_code=409)
+    return {"started": True, "dry_run": body.dry_run, "trigger": body.trigger}
+
+
+@api.get("/collect/last")
+async def last_collect(request: Request):
+    """실행 중이면 지금까지의 상태, 아니면 마지막 실행 결과(없으면 null)."""
+    runner = request.app.state.collect
+    return {"running": runner.running, "run": runner.snapshot()}
+
+
+FILTERS = (("all", "전체"), ("saved", "저장"), ("exists", "이미 있음"), ("skipped", "제외"), ("failed", "실패"))
+
+
+@api.get("/collect/settings")
+async def get_collect_settings(request: Request):
+    """저장된 수집 조건과 기본값, 설정 파일 문제 문구(없으면 null)."""
+    runner = request.app.state.collect
+    return {"settings": runner.config.model_dump(), "defaults": CollectConfig().model_dump(), "problem": runner.config_problem}
+
+
+@api.put("/collect/settings")
+async def put_collect_settings(request: Request, body: CollectConfig):
+    """수집 조건을 검증해 저장한다. 실행 중인 수집은 옛 조건으로 끝나고 다음 실행부터 적용된다."""
+    if denied := _foreign_origin(request):
+        return denied
+    try:
+        request.app.state.collect.update_config(body)
+    except OSError:
+        log.exception("수집 조건 저장 실패")
+        return JSONResponse({"problems": ["설정을 저장하지 못했어요."]}, status_code=500)
+    return {"settings": body.model_dump()}
+
+
+def _collect_context(request: Request, status: str) -> dict:
+    """수집 화면 템플릿 컨텍스트. 필터 값이 잘못되면 전체로 본다."""
+    s = request.app.state
+    run = s.collect.snapshot()
+    status = status if status in dict(FILTERS) else "all"
+    all_items = run["items"] if run else []
+    counts = {key: sum(1 for i in all_items if key == "all" or i["group"] == key) for key, _ in FILTERS}
+    return {"run": run, "running": s.collect.running, "notion_ready": s.service.notion_ready, "status": status,
+            "items": [i for i in all_items if status == "all" or i["group"] == status],
+            "counts": counts, "filters": FILTERS, "site_names": {x["key"]: x["name"] for x in run["sites"]} if run else {}}
+
+
+@app.get("/collect", response_class=HTMLResponse)
+async def collect_page(request: Request, status: str = "all"):
+    """자동 수집 화면 전체."""
+    s = request.app.state
+    form = {"config": s.collect.config.model_dump(), "defaults": CollectConfig().model_dump(), "problem": s.collect.config_problem,
+            "choices": {**CHOICES, "sites": list(SITE_NAMES.items())}}
+    return templates.TemplateResponse(request, "collect.html", {**_collect_context(request, status), **form})
+
+
+@app.get("/collect/results", response_class=HTMLResponse)
+async def collect_partial(request: Request, status: str = "all"):
+    """자동 수집 화면의 갱신 조각(실행 중 폴링·필터 전환용)."""
+    return templates.TemplateResponse(request, "_collect.html", _collect_context(request, status))
 
 
 @app.get("/health")

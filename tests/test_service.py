@@ -5,10 +5,12 @@ import asyncio
 import httpx
 
 from app.collection.fetcher import BlockedTarget, FetchError
+from dataclasses import replace
+
 from app.models import JobStatus
-from app.notion_store import page_url
+from app.notion_store import normalize_title, page_url
 from app.collection.collector import Collector
-from app.service import JobService
+from app.service import JobService, Screening
 from tests.helpers import load
 
 LIVE = load("saramin_55434315.html")
@@ -38,6 +40,7 @@ class FakeStore:
         self.fail_create_once = fail_create_once
         self.create_lands_anyway = create_lands_anyway
         self.create_calls = 0
+        self.company_creates = 0
 
     async def find_by_url(self, target):
         await asyncio.sleep(0.01)
@@ -47,13 +50,27 @@ class FakeStore:
         return None
 
     async def find_or_create_company(self, name):
+        if name not in self.companies:
+            self.company_creates += 1
         return self.companies.setdefault(name, f"company-{len(self.companies) + 1}")
+
+    async def find_company(self, name):
+        return self.companies.get(name)
+
+    async def find_by_title(self, p, company_page_id):
+        if company_page_id is None:
+            return None
+        for page in self.pages:
+            if page["company"] == company_page_id and normalize_title(page["title"], p.company) == normalize_title(p.title, p.company):
+                return page
+        return None
 
     async def create_posting(self, posting, company_id):
         self.create_calls += 1
         await asyncio.sleep(0.01)
         page = {"id": f"page-{len(self.pages) + 1}", "url": f"https://notion.so/p{len(self.pages) + 1}",
-                "url_prop": posting.url, "title": posting.title, "company": company_id}
+                "url_prop": posting.url, "title": posting.title, "company": company_id,
+                "career": posting.career_select}
         if self.fail_create_once:
             self.fail_create_once = False
             if self.create_lands_anyway:
@@ -328,3 +345,93 @@ async def test_store_swapped_mid_job_keeps_using_original_store():
     await svc.wait_idle()
     assert job.status is JobStatus.SAVED
     assert len(old.pages) == 1 and not new.pages and not new.companies
+
+
+# ---------------------------------------------------------------- 자동 수집 경로 (run_one)
+
+CLOSED = {"properties": {"지원 단계": {"type": "status", "status": {"name": "⏹️ 종료"}}}}
+
+
+def auto(store, screen=lambda p: (p, None), dry_run=False, fetcher=None):
+    """가짜 수집기를 쓰는 Screening을 만든다."""
+    return Screening(screen, Collector(fetcher or FakeFetcher(LIVE), None), dry_run)
+
+
+async def test_run_one_skipped_not_saved():
+    store = FakeStore()
+    svc = make(FakeFetcher(LIVE), store)
+    job = await svc.run_one(URL, auto(store, screen=lambda p: (p, "근무지 제외: 부산")))
+    assert job.status is JobStatus.SKIPPED and job.message == "근무지 제외: 부산"
+    assert store.create_calls == 0 and not svc.jobs
+
+
+async def test_run_one_saves_with_adjusted_posting():
+    store = FakeStore()
+    svc = make(FakeFetcher(LIVE), store)
+    job = await svc.run_one(URL, auto(store, screen=lambda p: (replace(p, career_select="2년 이상"), None)))
+    assert job.status is JobStatus.SAVED
+    assert store.pages[0]["career"] == "2년 이상"
+
+
+async def test_run_one_title_duplicate_is_exists():
+    store = FakeStore()
+    svc = make(FakeFetcher(LIVE), store)
+    first = await svc.run_one(URL, auto(store))
+    store.pages[0]["url_prop"] = "https://other.example/1"  # 같은 공고가 다른 URL로 올라와 있는 상황
+    job = await svc.run_one(URL, auto(store))
+    assert first.status is JobStatus.SAVED
+    assert job.status is JobStatus.EXISTS and job.message == "같은 기업·공고명 항목이 이미 있음"
+    assert store.create_calls == 1 and job.notion_url == "https://notion.so/p1"
+
+
+async def test_run_one_dry_run_writes_nothing():
+    store = FakeStore()
+    svc = make(FakeFetcher(LIVE), store)
+    job = await svc.run_one(URL, auto(store, dry_run=True))
+    assert job.status is JobStatus.PREVIEW and job.message == "미리보기: 저장하지 않음"
+    assert store.create_calls == 0 and store.company_creates == 0
+
+
+async def test_run_one_exists_closed_suffix():
+    store = FakeStore()
+    store.pages.append({"id": "old", "url": "https://notion.so/old", "url_prop": CANON, **CLOSED})
+    svc = make(FakeFetcher(LIVE), store)
+    job = await svc.run_one(URL, auto(store))
+    assert job.status is JobStatus.EXISTS and job.message.endswith(" (종료)")
+
+
+async def test_run_one_uses_screening_collector():
+    store = FakeStore()
+    default = FakeFetcher(error="x")
+    svc = make(default, store)
+    job = await svc.run_one(URL, auto(store))
+    assert job.status is JobStatus.SAVED and default.calls == 0
+
+
+async def test_run_one_invalid_url():
+    svc = make(FakeFetcher(LIVE), FakeStore())
+    job = await svc.run_one("http://127.0.0.1:8000/", auto(FakeStore()))
+    assert job.status is JobStatus.INVALID and not svc.jobs
+
+
+async def test_submit_unchanged_by_screening_rules():
+    class Harsh(Collector):
+        """선별 기준에 걸릴 공고(부산, 3년 이상)를 돌려주는 수집기."""
+
+        async def collect(self, target):
+            return replace(await super().collect(target), location="부산 해운대구", career_select="3년 이상")
+
+    store = FakeStore()
+    svc = JobService(Harsh(FakeFetcher(LIVE), None), store)
+    job = svc.submit(URL)
+    await svc.wait_idle()
+    assert job.status is JobStatus.SAVED and store.pages[0]["career"] == "3년 이상"  # 수동 경로는 선별하지 않는다
+    assert list(svc.jobs.values()) == [job]
+
+
+def test_status_group():
+    S = JobStatus
+    assert {s: s.group for s in S} == {
+        S.SAVED: "saved", S.PARTIAL: "saved", S.PREVIEW: "saved", S.EXISTS: "exists", S.SKIPPED: "skipped",
+        S.FETCH_FAILED: "failed", S.SAVE_FAILED: "failed", S.INVALID: "failed", S.PROCESSING: "processing"}
+    assert S.SKIPPED.css == "skipped" and S.PREVIEW.css == "preview"

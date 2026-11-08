@@ -10,14 +10,15 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import OrderedDict
-from dataclasses import replace
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 from typing import Protocol
 
 from app.collection.collector import Collector
 from app.collection.fetcher import FetchError
 from app.collection.urls import NormalizedURL, UnsupportedURL, normalize
 from app.models import Job, JobStatus, Posting
-from app.notion_store import is_uncertain_write_error, page_url
+from app.notion_store import is_closed, is_uncertain_write_error, page_url
 from app.parsers.common import today_kst
 
 log = logging.getLogger(__name__)
@@ -29,6 +30,17 @@ class Store(Protocol):
     async def find_by_url(self, target: NormalizedURL) -> dict | None: ...
     async def find_or_create_company(self, name: str) -> str | None: ...
     async def create_posting(self, p: Posting, company_page_id: str | None) -> dict: ...
+    async def find_company(self, name: str) -> str | None: ...
+    async def find_by_title(self, p: Posting, company_page_id: str | None) -> dict | None: ...
+
+
+@dataclass(frozen=True)
+class Screening:
+    """자동 수집 경로에서만 쓰는 처리 설정: 선별 함수, 전용 수집기, 미리보기 여부."""
+
+    screen: Callable[[Posting], tuple[Posting, str | None]]
+    collector: Collector
+    dry_run: bool = False
 
 
 class JobService:
@@ -58,6 +70,22 @@ class JobService:
         task.add_done_callback(self._tasks.discard)
         return job
 
+    async def run_one(self, raw_url: str, screening: Screening) -> Job:
+        """자동 수집용 한 건 처리. 결과를 작업 목록(self.jobs)에 넣지 않고 끝난 Job을 돌려준다."""
+        job = Job(input_url=raw_url.strip())
+        try:
+            target = normalize(raw_url)
+        except UnsupportedURL as e:
+            self._finish(job, JobStatus.INVALID, str(e))
+            return job
+        job.normalized_url = target.url
+        job.site = target.site.name
+        task = asyncio.create_task(self._run(job, target, screening))
+        self._tasks.add(task)  # 연결 교체 때 wait_idle이 이 작업도 기다리게
+        task.add_done_callback(self._tasks.discard)
+        await task
+        return job
+
     def recent(self, limit: int) -> list[Job]:
         return list(reversed(self.jobs.values()))[:limit]
 
@@ -66,19 +94,19 @@ class JobService:
             await asyncio.gather(*list(self._tasks), return_exceptions=True)
 
     # ------------------------------------------------------------ 처리
-    async def _run(self, job: Job, target: NormalizedURL) -> None:
+    async def _run(self, job: Job, target: NormalizedURL, screening: Screening | None = None) -> None:
         try:
             if not self.notion_ready:
                 self._finish(job, JobStatus.SAVE_FAILED, "노션 설정 문제로 저장할 수 없음 (화면 상단 안내 확인)")
                 return
             lock = self._url_locks.setdefault(target.url, asyncio.Lock())
             async with lock:  # 같은 URL은 조회부터 생성까지 한 번에 하나씩
-                await self._process(job, target)
+                await self._process(job, target, screening)
         except Exception as e:  # 예상 못 한 오류도 화면에 남긴다
             log.exception("작업 처리 오류")
             self._finish(job, JobStatus.SAVE_FAILED, f"처리 중 오류: {type(e).__name__}")
 
-    async def _process(self, job: Job, target: NormalizedURL) -> None:
+    async def _process(self, job: Job, target: NormalizedURL, screening: Screening | None = None) -> None:
         store = self.store  # 연결이 바뀌어도 한 작업은 처음 잡은 store만 쓴다
         try:
             existing = await store.find_by_url(target)
@@ -87,11 +115,11 @@ class JobService:
             return
         if existing:
             job.notion_url = page_url(existing)
-            self._finish(job, JobStatus.EXISTS, "같은 공고 URL의 항목이 이미 있음")
+            self._finish(job, JobStatus.EXISTS, "같은 공고 URL의 항목이 이미 있음" + self._closed_note(existing, screening))
             return
 
         try:
-            posting = await self.collector.collect(target)
+            posting = await (screening.collector if screening else self.collector).collect(target)
         except FetchError as e:
             self._finish(job, JobStatus.FETCH_FAILED, str(e))
             return
@@ -100,11 +128,34 @@ class JobService:
             posting = replace(posting, expired=True)
         job.title = posting.title
 
+        if screening:
+            posting, reason = screening.screen(posting)
+            if reason:
+                self._finish(job, JobStatus.SKIPPED, reason)
+                return
+
         try:
-            company_id = await store.find_or_create_company(posting.company) if posting.company else None
+            if screening and screening.dry_run:  # 미리보기는 기업을 만들지 않는다
+                company_id = await store.find_company(posting.company) if posting.company else None
+            else:
+                company_id = await store.find_or_create_company(posting.company) if posting.company else None
         except Exception as e:
             self._finish(job, JobStatus.SAVE_FAILED, f"기업 조회·생성 실패: {type(e).__name__}")
             return
+
+        if screening:
+            try:
+                same_title = await store.find_by_title(posting, company_id)
+            except Exception as e:
+                self._finish(job, JobStatus.SAVE_FAILED, f"공고명 중복 조회 실패: {type(e).__name__}")
+                return
+            if same_title:
+                job.notion_url = page_url(same_title)
+                self._finish(job, JobStatus.EXISTS, "같은 기업·공고명 항목이 이미 있음" + self._closed_note(same_title, screening))
+                return
+            if screening.dry_run:
+                self._finish(job, JobStatus.PREVIEW, "미리보기: 저장하지 않음")
+                return
 
         try:
             page = await self._create_with_recheck(store, posting, company_id, target)
@@ -138,6 +189,11 @@ class JobService:
         if existing:
             return existing
         return await store.create_posting(posting, company_id)
+
+    @staticmethod
+    def _closed_note(page: dict, screening: Screening | None) -> str:
+        """자동 경로에서 이미 있는 페이지가 종료 상태면 메시지에 붙일 표시."""
+        return " (종료)" if screening and is_closed(page) else ""
 
     @staticmethod
     def _finish(job: Job, status: JobStatus, message: str = "") -> None:

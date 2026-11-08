@@ -19,14 +19,34 @@ class JobStatus(str, Enum):
     FETCH_FAILED = "수집 실패"
     SAVE_FAILED = "저장 실패"
     INVALID = "입력 오류"
+    SKIPPED = "저장 안 함"  # 자동 수집에서 선별 조건에 걸려 저장하지 않은 공고
+    PREVIEW = "저장 대상"  # 자동 수집 미리보기에서 조건을 통과한 공고
 
     @property
     def css(self) -> str:
+        """화면 배지·카드에 붙일 클래스 이름."""
         return {
             JobStatus.PROCESSING: "processing",
             JobStatus.SAVED: "saved",
             JobStatus.PARTIAL: "partial",
             JobStatus.EXISTS: "exists",
+            JobStatus.FETCH_FAILED: "failed",
+            JobStatus.SAVE_FAILED: "failed",
+            JobStatus.INVALID: "failed",
+            JobStatus.SKIPPED: "skipped",
+            JobStatus.PREVIEW: "preview",
+        }[self]
+
+    @property
+    def group(self) -> str:
+        """수집 결과 집계·필터용 묶음."""
+        return {
+            JobStatus.PROCESSING: "processing",
+            JobStatus.SAVED: "saved",
+            JobStatus.PARTIAL: "saved",
+            JobStatus.PREVIEW: "saved",
+            JobStatus.EXISTS: "exists",
+            JobStatus.SKIPPED: "skipped",
             JobStatus.FETCH_FAILED: "failed",
             JobStatus.SAVE_FAILED: "failed",
             JobStatus.INVALID: "failed",

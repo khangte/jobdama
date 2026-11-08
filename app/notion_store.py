@@ -21,6 +21,7 @@ from notion_client.helpers import async_iterate_paginated_api
 from app.config import Settings
 from app.models import KST, SECTION_KEYS, Posting
 from app.parsers.common import normalize_company
+from app.collection.collect_config import PROVINCE_NAMES
 from app.collection.urls import NormalizedURL
 
 log = logging.getLogger(__name__)
@@ -161,6 +162,36 @@ def describe_error(e: Exception) -> str:
         code = getattr(e.code, "value", e.code)  # 알려진 코드는 APIErrorCode enum으로 온다
         return f"HTTP {e.status} {code}" + (f": {hint}" if hint else "")
     return type(e).__name__
+
+
+_LEAD_BRACKETS_RE = re.compile(r"^\s*(?:\[([^\]]*)\]|【([^】]*)】|\(([^)]*)\))\s*")
+# 공고를 가르는 괄호 안 단어: 이 단어로만 된 머리말은 지우지 않는다("[서울반도체]"처럼 기업명 일부는 부분 일치로 보지 않는다)
+_KEEP_BRACKET_WORDS = frozenset({"신입", "경력", "인턴", "계약직", "정규직", *PROVINCE_NAMES})
+_BRACKET_SPLIT_RE = re.compile(r"[\s/·,]+")
+_SPACES_RE = re.compile(r"\s+")
+
+
+def normalize_title(title: str, company: str | None) -> str:
+    """제목 중복 비교용 키. 앞쪽 괄호 머리말·공백·기업명을 지우고 소문자로 바꾼다. 신입·경력·근무지만 든 괄호는 남긴다."""
+    while (m := _LEAD_BRACKETS_RE.match(title)):
+        words = [w for w in _BRACKET_SPLIT_RE.split("".join(g or "" for g in m.groups()).strip()) if w]
+        if words and all(w in _KEEP_BRACKET_WORDS for w in words):
+            break
+        title = title[m.end():]
+    key = _SPACES_RE.sub("", title.lower())
+    for name in (normalize_company(company), _SPACES_RE.sub("", (company or "").lower())):
+        if name:
+            key = key.replace(name, "")
+    return key
+
+
+def is_closed(page: dict) -> bool:
+    """페이지의 상태·선택 속성 값에 '종료'가 들어 있는지."""
+    for prop in page.get("properties", {}).values():
+        kind = prop.get("type")
+        if kind in ("status", "select") and "종료" in ((prop.get(kind) or {}).get("name") or ""):
+            return True
+    return False
 
 
 def page_url(page: dict) -> str:
@@ -336,6 +367,35 @@ class NotionStore:
         results = res.get("results", [])
         return results[0] if results else None
 
+    async def find_by_title(self, p: Posting, company_page_id: str | None) -> dict | None:
+        """같은 기업의 공고 중 정규화한 공고명이 같은 첫 페이지. 다른 사이트·다른 URL로 올라온 같은 공고를 찾는다."""
+        return await self._retry_on_schema_change(lambda: self._find_by_title(p, company_page_id))
+
+    async def _find_by_title(self, p: Posting, company_page_id: str | None) -> dict | None:
+        """같은 기업 공고 중 정규화한 공고명이 같은 페이지를 찾는다(find_by_title의 본체)."""
+        # shortcut: 같은 기업 공고를 전부 읽는다. 기업당 수백 건이 되면 정규화 제목 속성을 두고 equals로 검색한다.
+        col, info = self.job_props["company"]
+        kind = info["type"]
+        if kind == "relation":
+            if not company_page_id:
+                return None
+            filt = {"property": col, "relation": {"contains": company_page_id}}
+        else:
+            if not p.company:
+                return None
+            filt = {"property": col, kind: {"equals": p.company}}
+        want = normalize_title(p.title, p.company)
+        if not want:  # "[채용공고]"처럼 비교할 글자가 없으면 아무 공고와도 같다고 보지 않는다
+            return None
+        title_col = self.job_props["title"][0]
+        pages = async_iterate_paginated_api(
+            self.client.data_sources.query, data_source_id=self.s.job_data_source_id, filter=filt, page_size=100)
+        async for page in pages:
+            parts = page.get("properties", {}).get(title_col, {}).get("title", [])
+            if normalize_title("".join(t.get("plain_text", "") for t in parts), p.company) == want:
+                return page
+        return None
+
     async def create_posting(self, p: Posting, company_page_id: str | None) -> dict:
         return await self._retry_on_schema_change(lambda: self._create_posting(p, company_page_id))
 
@@ -369,6 +429,19 @@ class NotionStore:
         lock = self._company_locks.setdefault(key, asyncio.Lock())
         async with lock:
             return await self._retry_on_schema_change(lambda: self._find_or_create_company(name, key))
+
+    async def find_company(self, name: str) -> str | None:
+        """기업 페이지 ID를 읽기만 한다(없어도 만들지 않는다). 기업 열이 relation이 아니거나 이름이 비면 None."""
+        key = normalize_company(name)
+        if not self.company_source_id or not key:
+            return None
+        return await self._retry_on_schema_change(lambda: self._find_company_if_linked(key))
+
+    async def _find_company_if_linked(self, key: str) -> str | None:
+        """기업 DB에서 기업명이 같은 페이지 ID를 찾는다(find_company의 본체). 기업 열이 relation이 아니면 None."""
+        if not self.company_source_id:  # 다시 읽은 스키마에서 기업 열이 relation이 아니게 됐을 수 있다
+            return None
+        return await self._find_company(key)
 
     async def _find_or_create_company(self, name: str, key: str) -> str | None:
         if not self.company_source_id:  # 다시 읽은 스키마에서 기업 열이 relation이 아니게 됐을 수 있다
