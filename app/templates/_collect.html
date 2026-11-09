@@ -9,7 +9,7 @@
   </section>
   {% if not notion_ready %}<section class="notice" role="status">Notion을 연결해야 수집할 수 있어요.<a href="/">메인에서 연결하기 →</a></section>{% endif %}
   <section class="panel run-panel" aria-label="수집 실행">
-    <div><h2>수집 실행</h2><p>위 조건으로 지금 공고를 확인해요.</p></div>
+    <div><h2>수집 실행</h2><p><span class="collect-narrow-copy">위 조건으로</span><span class="collect-desktop-copy">설정한 조건으로</span> 지금 공고를 확인해요.</p></div>
     <form id="collect-form" class="run-controls">
       <label class="preview-check"><input type="checkbox" name="dry_run"{% if running %} disabled{% if run and run.dry_run %} checked{% endif %}{% endif %}>미리보기 (Notion에 저장하지 않음)</label>
       <button class="primary" type="submit" id="collect-run"{% if running or not notion_ready %} disabled{% endif %}>수집 실행</button>

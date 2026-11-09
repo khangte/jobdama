@@ -267,6 +267,18 @@
   });
   const settingsForm = document.getElementById("settings-form");
   if (settingsForm) {
+    const settingsPanel = document.getElementById("collect-settings");
+    const settingsToggle = document.getElementById("collect-settings-toggle");
+    function openSettingsPanel() {
+      // 접힌 조건을 다시 보여 주고 토글 상태를 맞춘다.
+      settingsPanel.classList.remove("collapsed");
+      settingsToggle.setAttribute("aria-expanded", "true");
+    }
+    settingsToggle.addEventListener("click", () => {
+      const collapsed = settingsPanel.classList.toggle("collapsed");
+      settingsToggle.setAttribute("aria-expanded", String(!collapsed));
+    });
+    document.querySelector('a[href="#settings-form"]').addEventListener("click", openSettingsPanel);
     const SELECTS = ["job", "region", "career", "education", "employment", "salary", "sort"];
     const WORDS = ["title_exclude_words", "body_signal_words"];
     const summary = document.getElementById("settings-error");
@@ -318,6 +330,7 @@
 
     function showSummary(message) {
       // 저장 실패 요약을 알림 영역에 표시한다.
+      openSettingsPanel();
       summary.textContent = message;
       summary.hidden = false;
     }

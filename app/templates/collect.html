@@ -30,6 +30,9 @@
 <main class="collect-workspace">
   <p class="eyebrow">COLLECT YOUR NEXT OPPORTUNITY</p><h1>자동 수집</h1>
   <p class="subtitle">매일 정해진 사이트에서 조건에 맞는 공고만 골라 Notion에 담아요.</p>
+  <div class="collect-layout">
+  <aside class="collect-settings" id="collect-settings">
+  <button class="collect-settings-toggle" id="collect-settings-toggle" type="button" aria-controls="settings-form" aria-expanded="true"><span class="toggle-open">조건 접기 ‹</span><span class="toggle-closed">조건 펼치기 ›</span></button>
   <form class="settings-form" id="settings-form" aria-labelledby="settings-heading" autocomplete="off" novalidate>
     <div class="settings-intro">
       <h2 id="settings-heading">수집 조건</h2>
@@ -70,8 +73,10 @@
       </details>
       <div class="settings-actions"><p class="status-copy" role="status" id="settings-status"></p><button class="secondary" type="button" id="defaults-button">기본값 불러오기</button><button class="primary" type="submit" id="save-button">저장</button></div>
   </form>
+  </aside>
   <script type="application/json" id="settings-defaults">{{ defaults|tojson }}</script>
   {% include "_collect.html" %}
+  </div>
 </main>
 </body>
 </html>
