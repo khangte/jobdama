@@ -1,5 +1,5 @@
 <div id="collect" class="collect-stack" data-collect-status="{{ status }}" data-collect-run="{{ run.started_at if run else '' }}" hx-get="/collect/results?status={{ status }}" hx-trigger="{% if running %}every 2s, {% endif %}collect-started from:body" hx-swap="outerHTML">
-  <section class="panel collect-status" aria-label="수집 상태">
+  <section class="panel collect-status collect-status-narrow" aria-label="수집 상태">
     <div>
       {% if running %}<strong>수집 중이에요</strong><p>사이트를 하나씩 확인하고 있어요. 지금까지 {{ counts.all }}건을 처리했어요.</p>
       {% elif run %}<strong>마지막 실행 {{ run.started_at[:16].replace('T', ' ') }}</strong><p>실행 방식 {{ '화면' if run.trigger == 'screen' else '스케줄' }}{% if run.finished_at %} · 완료 {{ run.finished_at[11:16] }}{% endif %}{% if run.error %} · 실행 오류: {{ run.error }}{% endif %}</p>
@@ -9,7 +9,15 @@
   </section>
   {% if not notion_ready %}<section class="notice" role="status">Notion을 연결해야 수집할 수 있어요.<a href="/">메인에서 연결하기 →</a></section>{% endif %}
   <section class="panel run-panel" aria-label="수집 실행">
-    <div><h2>수집 실행</h2><p><span class="collect-narrow-copy">위 조건으로</span><span class="collect-desktop-copy">설정한 조건으로</span> 지금 공고를 확인해요.</p></div>
+    <div class="run-info">
+      <div class="run-heading"><h2>수집 실행</h2><p><span class="collect-narrow-copy">위 조건으로</span><span class="collect-desktop-copy">설정한 조건으로</span> 지금 공고를 확인해요.</p></div>
+      <div class="run-status" aria-label="수집 상태">
+        {% if running %}<p>수집 중이에요 · 지금까지 {{ counts.all }}건을 처리했어요.</p>
+        {% elif run %}<p>마지막 실행 {{ run.started_at[:16].replace('T', ' ') }} · 전체 {{ counts.all }}건 · 저장 {{ counts.saved }}건 · 제외 {{ counts.skipped }}건</p><p class="run-details">실행 방식 {{ '화면' if run.trigger == 'screen' else '스케줄' }}{% if run.finished_at %} · 완료 {{ run.finished_at[11:16] }}{% endif %}</p>{% if run.error %}<p>실행 오류: {{ run.error }}</p>{% endif %}
+        {% else %}<p>아직 실행 기록이 없어요.</p>{% endif %}
+        {% if running %}<span class="state-chip">진행 중</span>{% endif %}{% if run and run.dry_run %}<span class="state-chip preview">미리보기</span>{% endif %}
+      </div>
+    </div>
     <form id="collect-form" class="run-controls">
       <label class="preview-check"><input type="checkbox" name="dry_run"{% if running %} disabled{% if run and run.dry_run %} checked{% endif %}{% endif %}>미리보기 (Notion에 저장하지 않음)</label>
       <button class="primary" type="submit" id="collect-run"{% if running or not notion_ready %} disabled{% endif %}>수집 실행</button>
