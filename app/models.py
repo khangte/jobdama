@@ -107,6 +107,7 @@ class Job:
     status: JobStatus = JobStatus.PROCESSING
     message: str = ""
     title: str | None = None
+    company: str | None = None  # 화면 마크용 확정 회사명
     notion_url: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(KST))
 
@@ -119,6 +120,7 @@ class Job:
             "status": self.status.value,
             "message": self.message,
             "title": self.title,
+            "company": self.company,
             "notion_url": self.notion_url,
             "created_at": self.created_at.isoformat(),
         }

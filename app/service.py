@@ -128,6 +128,7 @@ class JobService:
         if posting.deadline and posting.deadline < today and not posting.expired:
             posting = replace(posting, expired=True)
         job.title = posting.title
+        job.company = posting.company
 
         if screening:
             posting, reason = screening.screen(posting)

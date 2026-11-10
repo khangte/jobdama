@@ -175,7 +175,7 @@ class CollectRunner:
             job = await self._service.run_one(url, screening)
             site[job.status.group] += 1
             run["items"].append({
-                "site": key, "title": job.title or job.normalized_url or job.input_url, "status": job.status.value,
+                "site": key, "title": job.title or job.normalized_url or job.input_url, "company": job.company, "status": job.status.value,
                 "css": job.status.css, "group": job.status.group, "message": job.message,
                 "notion_url": job.notion_url, "url": job.normalized_url or job.input_url})
             failures = failures + 1 if job.status is JobStatus.FETCH_FAILED else 0

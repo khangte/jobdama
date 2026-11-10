@@ -12,9 +12,11 @@ from fastapi.templating import Jinja2Templates
 from starlette.datastructures import State
 
 from app.collect_runner import CollectRunner
+from app.parsers.common import company_mark
 from app.service import JobService
 
 templates = Jinja2Templates(directory=Path(__file__).parent.parent / "templates")
+templates.env.globals["company_mark"] = company_mark
 
 
 def foreign_origin(request: Request) -> JSONResponse | None:

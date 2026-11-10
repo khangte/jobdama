@@ -95,6 +95,7 @@ async def test_saved():
     assert store.pages[0]["url_prop"] == CANON
     assert store.pages[0]["company"] == "company-1"
     assert job.notion_url == "https://notion.so/p1"
+    assert job.company and job.to_dict()["company"] == job.company
 
 
 async def test_same_url_pasted_three_times_creates_one():

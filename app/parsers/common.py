@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date, datetime
 
 from app.models import KST
@@ -37,6 +38,33 @@ def normalize_company(name: str | None) -> str:
     if not name:
         return ""
     return _core(_CORP_RE.sub("", name))
+
+
+# 화면 마크용 법인 표기(NFKC·괄호 내부 공백 정리 뒤 기준). 긴 것부터 비교한다
+_MARK_CORP = sorted(
+    ["(주)", "주식회사", "(유)", "유한회사", "유한책임회사", "(사)", "사단법인", "(재)", "재단법인", "(합)", "합자회사", "합명회사"],
+    key=len, reverse=True)
+_PAREN_SP_RE = re.compile(r"\(\s*([주유사재합])\s*\)")
+
+
+def company_mark(company: str | None) -> str:
+    """화면 마크 글자. 양끝 법인 표기를 걷어낸 회사명의 첫 글자(영문 ASCII는 대문자), 없으면 ↗."""
+    s = _PAREN_SP_RE.sub(r"(\1)", unicodedata.normalize("NFKC", company or "")).strip()
+    changed = True
+    while changed:
+        changed = False
+        for c in _MARK_CORP:
+            if s.startswith(c):
+                s, changed = s[len(c):].strip(), True
+            elif s.endswith(c):
+                s, changed = s[:-len(c)].strip(), True
+    for i, ch in enumerate(s):
+        if ch.isalnum():
+            j = i + 1
+            while j < len(s) and unicodedata.category(s[j]).startswith("M"):  # 결합 문자는 함께 둔다
+                j += 1
+            return s[i:j].upper() if ch.isascii() else s[i:j]
+    return "↗"
 
 
 def format_title(raw_title: str, company: str | None) -> str:
