@@ -12,7 +12,7 @@
 <ol class="jobs">
   {% for job in jobs %}
   <li class="card job {{ job.status.css }}" data-job-id="{{ job.id }}">
-    <span class="company-mark" aria-hidden="true">{% if job.title %}{{ job.title.lstrip('[')[:1] }}{% else %}↗{% endif %}</span>
+    <span class="company-mark" aria-hidden="true">{{ company_mark(job.company) }}</span>
     <div class="job-body">
       <div class="job-heading">
         <h3 class="job-title">{% if job.title %}{{ job.title }}{% elif job.status.css == 'processing' %}공고 정보를 가져오고 있어요{% else %}{{ job.normalized_url or job.input_url }}{% endif %}</h3>

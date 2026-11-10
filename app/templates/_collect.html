@@ -53,7 +53,7 @@
       {% if running %}<li class="card job"><span class="company-mark" aria-hidden="true">↗</span><div class="job-body"><div class="job-heading"><h3 class="job-title">공고 정보를 가져오고 있어요</h3><span class="badge processing">수집 중</span></div><p class="job-message">공고 내용을 확인하는 중이에요. 잠시만 기다려 주세요.</p></div></li>{% endif %}
       {% for item in items %}
       <li class="card job {{ item.css }}" data-collect-item>
-        <span class="company-mark" aria-hidden="true">{{ item.title.lstrip('[')[:1] }}</span>
+        <span class="company-mark" aria-hidden="true">{{ company_mark(item.company|default(none)) }}</span>
         <div class="job-body">
           <div class="job-heading"><h3 class="job-title">{{ item.title }}</h3><span class="badge {{ item.css }}">{{ item.status }}</span></div>
           <p class="job-message">{% if item.message %}{{ item.message }}{% elif item.css == 'preview' %}미리보기에서 선별 조건을 통과했어요. Notion에는 저장하지 않았어요.{% endif %}</p>
