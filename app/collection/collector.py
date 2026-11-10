@@ -29,16 +29,17 @@ class Collector:
     - 본문을 별도 페이지로 주는 사이트(잡코리아, 인크루트, 캐치)는 본문 페이지도 같은 수집기로 받는다.
     """
 
-    def __init__(self, http: Fetcher, browser: Fetcher | None):
+    def __init__(self, http: Fetcher, browser: Fetcher | None, skip_body_sites: tuple[str, ...] = ()):
         self.http = http
         self.browser = browser
+        self.skip_body_sites = skip_body_sites  # 본문 URL을 요청하지 않을 사이트 키(robots 금지 경로)
 
     async def _once(self, fetcher: Fetcher, target: NormalizedURL) -> Posting:
         html, final_url = await fetcher.fetch(target.url, target.site)
         if not same_posting(target, final_url):
             raise PostingMismatch("요청한 공고와 다른 공고로 이동됨")
         pages = {"main": html}
-        body_url = target.extra.get("body_url")
+        body_url = None if target.site.key in self.skip_body_sites else target.extra.get("body_url")
         if body_url:
             try:
                 pages["body"], _ = await fetcher.fetch(body_url, target.site)

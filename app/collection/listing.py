@@ -8,7 +8,7 @@ from dataclasses import dataclass, replace
 from urllib.parse import urlencode
 
 from app.collection.collect_config import CollectConfig
-from app.collection.urls import INCRUIT, JOBKOREA, JUMPIT, SARAMIN, WANTED, Site
+from app.collection.urls import CATCH, INCRUIT, JOBKOREA, JUMPIT, SARAMIN, WANTED, Site
 
 # 목록 요청 전용 Site. urls.py의 SITES·normalize는 건드리지 않는다(API 호스트는 상세 링크로 받지 않음)
 JUMPIT_API = replace(JUMPIT, hosts=("jumpit-api.saramin.co.kr",))
@@ -80,10 +80,11 @@ SITE_PARAMS: dict[str, dict[str, dict[str, Pairs]]] = {
         "career": _one("career", {"new": "0"}),
         "sort": _one("sort", {"latest": "reg_dt", "relevance": "relation"}),
     },
+    "catch": {},  # 필터 코드가 검증되지 않아 검색어만 보낸다
 }
 
 _FIELD_ORDER = ("job", "region", "career", "education", "employment", "salary", "sort")
-_SITES = {"saramin": SARAMIN, "jobkorea": JOBKOREA, "wanted": WANTED, "incruit": INCRUIT, "jumpit": JUMPIT_API}
+_SITES = {"saramin": SARAMIN, "jobkorea": JOBKOREA, "wanted": WANTED, "incruit": INCRUIT, "jumpit": JUMPIT_API, "catch": CATCH}
 
 
 # 사이트별 기본 쿼리 쌍. 값이 None인 쌍이 검색어 자리다(검색어가 비면 뺀다)
@@ -93,6 +94,8 @@ _BASE: dict[str, Pairs] = {
     "wanted": [("country", "kr"), ("query", None), ("limit", "40")],
     "incruit": [("kw", None)],
     "jumpit": [("keyword", None), ("size", "40")],
+    # 서버가 curpage·pageSize가 없으면 null을 준다. 키워드 키는 대문자 Keyword
+    "catch": [("Keyword", None), ("curpage", "1"), ("pageSize", "40"), ("onRecruitYN", "Y")],
 }
 _JOBKOREA_PAGES = ("1", "2")  # 잡코리아만 목록 2페이지를 받는다
 
@@ -103,6 +106,7 @@ _ENDPOINT = {
     "wanted": "https://www.wanted.co.kr/api/v4/jobs",
     "incruit": "https://job.incruit.com/jobdb_list/searchjob.asp",
     "jumpit": "https://jumpit-api.saramin.co.kr/api/positions",
+    "catch": "https://www.catch.co.kr/api/v1.0/recruit/information/getRecruitList",
 }
 
 
@@ -165,4 +169,10 @@ def extract_links(site_key: str, body: str, max_years: int | None = None) -> lis
                     if (p.get("minCareer") or 0) <= limit]
         except (KeyError, TypeError, AttributeError) as e:
             raise ValueError(f"점핏 목록 형식 오류: {type(e).__name__}") from e
+    if site_key == "catch":
+        try:
+            rows = json.loads(body)["recruitData"]
+            return _unique([f"https://www.catch.co.kr/NCS/RecruitInfoDetails/{int(r['RecruitID'])}" for r in rows])
+        except (KeyError, TypeError, ValueError, AttributeError) as e:  # 조건에 맞는 공고가 없거나 파라미터가 틀리면 null이 온다
+            raise ValueError(f"캐치 목록 형식 오류: {type(e).__name__}") from e
     raise ValueError(f"목록을 지원하지 않는 사이트: {site_key}")

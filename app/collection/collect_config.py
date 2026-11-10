@@ -13,9 +13,9 @@ from pydantic_core import PydanticCustomError
 log = logging.getLogger("jobdama.collect_config")
 
 # 지원하는 수집 사이트 키(화면 표시·정렬 순서의 기준)
-SITE_KEYS = ("saramin", "jobkorea", "wanted", "incruit", "jumpit")
+SITE_KEYS = ("saramin", "jobkorea", "wanted", "incruit", "jumpit", "catch")
 # 사이트 키 → 화면에 보여줄 한글 이름
-SITE_NAMES = {"saramin": "사람인", "jobkorea": "잡코리아", "wanted": "원티드", "incruit": "인크루트", "jumpit": "점핏"}
+SITE_NAMES = {"saramin": "사람인", "jobkorea": "잡코리아", "wanted": "원티드", "incruit": "인크루트", "jumpit": "점핏", "catch": "캐치"}
 
 # 모든 선택지에 공통으로 들어가는 "무관" 항목
 _ANY = {"any": "무관"}

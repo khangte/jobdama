@@ -72,7 +72,7 @@ class CollectRunner:
         self._sources = sources
         self._screen = screen
         self.config, self.config_problem = load_config(config_path)
-        self._collector = Collector(fetcher, None)  # 브라우저 재시도 없음: 봇 확인 화면을 우회하지 않는다
+        self._collector = Collector(fetcher, None, skip_body_sites=("catch",))  # 브라우저 재시도 없음: 봇 확인 화면을 우회하지 않는다
         self._last = load_last(result_path)
         self._current: dict | None = None
         self._task: asyncio.Task | None = None

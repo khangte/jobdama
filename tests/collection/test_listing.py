@@ -123,3 +123,20 @@ def test_sites_subset_order():
 
 def test_site_params_example():
     assert SITE_PARAMS["jumpit"]["job"]["app"] == [("jobCategory", "4"), ("jobCategory", "16"), ("jobCategory", "18")]
+
+
+def test_catch_url_and_extract():
+    """캐치 목록 주소 조립과 RecruitID → 상세 URL 변환·중복 제거를 확인한다."""
+    assert urls()["catch"] == (("https://www.catch.co.kr/api/v1.0/recruit/information/getRecruitList"
+                                "?Keyword=python&curpage=1&pageSize=40&onRecruitYN=Y"),)
+    body = '{"recruitData": [{"RecruitID": 575584}, {"RecruitID": "578557"}, {"RecruitID": 575584}], "intTotalRecordCount": 3}'
+    links = extract_links("catch", body)
+    assert links == [f"https://www.catch.co.kr/NCS/RecruitInfoDetails/{i}" for i in (575584, 578557)]
+    assert normalize(links[0]).url == links[0]
+
+
+@pytest.mark.parametrize("body", ["null", "not json", '{"recruitData": [1]}', '{"recruitData": [{"RecruitID": "x"}]}'])
+def test_catch_broken_is_value_error(body):
+    """캐치 목록 응답이 null·깨진 JSON·잘못된 행이면 ValueError를 낸다."""
+    with pytest.raises(ValueError):
+        extract_links("catch", body)

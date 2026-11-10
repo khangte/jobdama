@@ -65,8 +65,8 @@ def test_word_limits():
 def test_sites_rules():
     e = first_error(sites=[])
     assert e["type"] == "sites" and e["msg"] == "사이트를 하나 이상 고르세요."
-    e = first_error(sites=["catch"])
-    assert e["type"] == "sites" and e["msg"] == "알 수 없는 사이트예요: catch"
+    e = first_error(sites=["nope"])
+    assert e["type"] == "sites" and e["msg"] == "알 수 없는 사이트예요: nope"
     assert CollectConfig(sites=["jumpit", "saramin", "saramin"]).sites == ["saramin", "jumpit"]
 
 

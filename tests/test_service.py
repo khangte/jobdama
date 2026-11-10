@@ -10,6 +10,7 @@ from dataclasses import replace
 from app.models import JobStatus
 from app.notion.pages import normalize_title, page_url
 from app.collection.collector import Collector
+from app.collection.urls import normalize
 from app.service import JobService, Screening
 from tests.helpers import load
 
@@ -435,3 +436,14 @@ def test_status_group():
         S.SAVED: "saved", S.PARTIAL: "saved", S.PREVIEW: "saved", S.EXISTS: "exists", S.SKIPPED: "skipped",
         S.FETCH_FAILED: "failed", S.SAVE_FAILED: "failed", S.INVALID: "failed", S.PROCESSING: "processing"}
     assert S.SKIPPED.css == "skipped" and S.PREVIEW.css == "preview"
+
+
+async def test_collector_skips_catch_body_only_when_configured():
+    """자동 수집용 Collector(skip_body_sites)는 캐치 /controls 본문을 요청하지 않고, 기본 Collector는 요청한다."""
+    target = normalize("https://www.catch.co.kr/NCS/RecruitInfoDetails/578555")
+    page = load("catch_578555.html")
+    auto, manual = FakeFetcher(page), FakeFetcher(page)
+    await Collector(auto, None, skip_body_sites=("catch",)).collect(target)
+    await Collector(manual, None).collect(target)
+    assert auto.urls == [target.url]
+    assert manual.urls == [target.url, "https://www.catch.co.kr/controls/recruitDetail/578555"]

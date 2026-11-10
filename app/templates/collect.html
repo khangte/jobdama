@@ -55,13 +55,13 @@
       <h3 id="search-heading">검색 조건</h3>
       <div class="search-grid">
         <div class="field"><label for="keyword">검색어</label><input id="keyword" name="keyword" type="text" value="{{ config.keyword }}" autocomplete="off"><small class="field-hint">비워 두면 검색어 없이 찾아요. 원티드는 공고 제목에서만 찾아요.</small><p class="field-error" id="err-keyword" hidden></p></div>
-        {{ pick("job", "직무", "사이트마다 가장 가까운 직무 분류로 찾아요. 인크루트는 IT개발·데이터 전체로 찾아요.") }}
-        {{ pick("region", "근무지", "잡코리아·인크루트와 원티드의 서울·경기 밖 지역은 받은 뒤 주소로 걸러요. 시·도 없이 구만 적힌 주소는 통과시켜요.") }}
+        {{ pick("job", "직무", "사이트마다 가장 가까운 직무 분류로 찾아요. 인크루트는 IT개발·데이터 전체로 찾아요. 캐치는 검색어만 적용돼요.") }}
+        {{ pick("region", "근무지", "잡코리아·인크루트와 원티드의 서울·경기 밖 지역은 받은 뒤 주소로 걸러요. 시·도 없이 구만 적힌 주소는 통과시켜요. 캐치도 받은 뒤 주소로 걸러요.") }}
         {{ pick("career", "경력", "이보다 높은 경력을 요구하는 공고는 제외해요.") }}
-        {{ pick("education", "학력", "원티드·점핏에는 적용되지 않아요.") }}
-        {{ pick("employment", "고용형태", "원티드·점핏은 받은 뒤 공고의 고용형태로 걸러요.") }}
-        {{ pick("salary", "연봉", "사람인·잡코리아에만 적용돼요. 회사 내규인 공고는 빠질 수 있어요.") }}
-        {{ pick("sort", "정렬", "사이트에 없는 정렬은 사이트 기본 순서로 받아요.") }}
+        {{ pick("education", "학력", "원티드·점핏에는 적용되지 않아요. 캐치는 검색어만 적용돼요.") }}
+        {{ pick("employment", "고용형태", "원티드·점핏·캐치는 받은 뒤 공고의 고용형태로 걸러요.") }}
+        {{ pick("salary", "연봉", "사람인·잡코리아에만 적용돼요. 회사 내규인 공고는 빠질 수 있어요. 캐치는 검색어만 적용돼요.") }}
+        {{ pick("sort", "정렬", "사이트에 없는 정렬은 사이트 기본 순서로 받아요. 캐치는 검색어만 적용돼요.") }}
       </div>
     </section>
       <details class="panel settings-panel words-details" id="words-details">
