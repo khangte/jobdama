@@ -61,7 +61,11 @@ def company_mark(company: str | None) -> str:
     for i, ch in enumerate(s):
         if ch.isalnum():
             j = i + 1
-            while j < len(s) and unicodedata.category(s[j]).startswith("M"):  # 결합 문자는 함께 둔다
+            # shortcut: 인도계 결합·ZWJ만 처리하는 간이 자소 묶음, 다른 문자 체계 요구가 생기면 regex \X 도입
+            while j < len(s) and (
+                unicodedata.category(s[j])[0] == "M" or s[j] in "\u200c\u200d"
+                or s[j - 1] in "\u200c\u200d" or unicodedata.combining(s[j - 1]) == 9  # ZWJ·비라마 뒤 글자는 이어진다
+            ):
                 j += 1
             return s[i:j].upper() if ch.isascii() else s[i:j]
     return "↗"

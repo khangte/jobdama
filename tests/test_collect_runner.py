@@ -243,6 +243,6 @@ def test_corrupt_config_problem(tmp_path):
 
 async def test_items_carry_company(tmp_path):
     """결과 항목이 확정 회사명을 싣는다(화면 마크용)."""
-    runner, _, service = make(tmp_path)
+    runner, _, _service = make(tmp_path)
     run = await run_all(runner)
     assert all("company" in i for i in run["items"]) and any(i["company"] for i in run["items"])
