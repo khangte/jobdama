@@ -51,3 +51,9 @@ async def jobs_partial(request: Request, s: StateDep):
 async def health(service: ServiceDep):
     """서버 상태와 노션 연결 여부."""
     return JSONResponse({"ok": True, "notion_ready": service.notion_ready})
+
+
+@pages.get("/.well-known/appspecific/com.chrome.devtools.json", include_in_schema=False)
+async def chrome_devtools_probe():
+    """크롬 개발자 도구가 자동으로 요청하는 주소. 404 로그를 막으려고 빈 JSON을 돌려준다."""
+    return {}

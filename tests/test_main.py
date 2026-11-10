@@ -38,6 +38,14 @@ def test_static_files_revalidate():
     assert res.headers["cache-control"] == "no-cache"
 
 
+def test_chrome_devtools_probe_is_empty_and_hidden():
+    """크롬 개발자 도구 자동 요청은 200 빈 JSON이고 OpenAPI에는 나오지 않는다."""
+    path = "/.well-known/appspecific/com.chrome.devtools.json"
+    res = TestClient(app, base_url="http://localhost").get(path)
+    assert res.status_code == 200 and res.json() == {}
+    assert path not in app.openapi()["paths"]
+
+
 def test_api_routes_are_versioned():
     paths = set(app.openapi()["paths"])  # Swagger에 보이는 경로
     assert {"/api/v1/jobs", "/api/v1/recheck", "/api/v1/notion/connect", "/api/v1/notion/disconnect", "/jobs", "/health",
